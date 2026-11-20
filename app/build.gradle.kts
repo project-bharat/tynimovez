@@ -21,6 +21,15 @@ android {
     }
     kotlinOptions { jvmTarget = "17" }
     buildFeatures { compose = true }
+
+    // Sherpa-ONNX bundles desktop runtime payloads inside its dependency.
+    // Android already receives its native libraries from lib/<abi>; exclude
+    // Windows/macOS payloads from the APK to avoid shipping unused binaries.
+    packaging {
+        resources {
+            excludes += "sherpa-onnx/native/**"
+        }
+    }
 }
 
 dependencies {
