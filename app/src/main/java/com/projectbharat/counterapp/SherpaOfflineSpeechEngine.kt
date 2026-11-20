@@ -4,6 +4,7 @@ import android.media.AudioFormat
 import android.media.AudioRecord
 import android.media.MediaRecorder
 import android.os.Handler
+import android.util.Log
 import android.os.Looper
 import com.k2fsa.sherpa.onnx.OfflineModelConfig
 import com.k2fsa.sherpa.onnx.OfflineNemoEncDecCtcModelConfig
@@ -155,10 +156,23 @@ class SherpaOfflineSpeechEngine(
             while (running.get()) {
                 val read = audio.read(pcm, 0, pcm.size, AudioRecord.READ_BLOCKING)
                 if (read < 0) {
-                    if (running.get()) throw IllegalStateException("Microphone read failed ($read)")
+                    if (running.get()) {
+                        val reason = when (read) {
+                            AudioRecord.ERROR_DEAD_OBJECT -> "Microphone connection was interrupted (dead audio device)"
+                            AudioRecord.ERROR_INVALID_OPERATION -> "Microphone stopped unexpectedly"
+                            AudioRecord.ERROR_BAD_VALUE -> "Microphone returned an invalid audio buffer"
+                            AudioRecord.ERROR -> "Microphone read error"
+                            else -> "Microphone read failed ($read)"
+                        }
+                        throw IllegalStateException(reason)
+                    }
                     break
                 }
-                if (read == 0) continue
+                if (read == 0) {
+                    // Avoid a tight CPU spin if the platform temporarily returns an empty frame.
+                    Thread.yield()
+                    continue
+                }
                 var energy = 0.0
                 val frame = FloatArray(read)
                 for (i in 0 until read) {
@@ -194,6 +208,14 @@ class SherpaOfflineSpeechEngine(
                 }
 
                 if (speaking && (silence >= silenceLimit || phraseLength >= maximumPhrase)) {
+                    // Phrase buffering is strictly bounded (6 seconds). Log memory pressure
+                    // at segment boundaries rather than allocating diagnostics every audio frame.
+                    val runtime = Runtime.getRuntime()
+                    val usedBytes = runtime.totalMemory() - runtime.freeMemory()
+                    val maxBytes = runtime.maxMemory()
+                    if (maxBytes > 0L && usedBytes > maxBytes * 0.85) {
+                        Log.w(TAG, "High heap use at phrase boundary: ${usedBytes / (1024 * 1024)}MB / ${maxBytes / (1024 * 1024)}MB")
+                    }
                     if (phraseLength >= minimumPhrase && running.get()) decodePhrase(recognizer, phraseSamples)
                     phraseSamples.clear()
                     preRoll.clear()
@@ -205,6 +227,7 @@ class SherpaOfflineSpeechEngine(
             }
         } catch (error: Throwable) {
             startupFailure = error
+            Log.e(TAG, "Offline voice worker failed", error)
             startupSignal.countDown()
             val detail = error.message.orEmpty()
             failureMessage = when {
@@ -242,7 +265,8 @@ class SherpaOfflineSpeechEngine(
             } finally {
                 stream.release()
             }
-        } catch (_: Throwable) {
+        } catch (error: Exception) {
+            Log.w(TAG, "Phrase decode failed; continuing capture", error)
             postStatus(if (english) "Could not decode that phrase. Keep speaking clearly." else "हा शब्दसमूह ओळखता आला नाही. स्पष्ट बोला.")
         }
     }
@@ -252,6 +276,7 @@ class SherpaOfflineSpeechEngine(
     }
 
     companion object {
+        private const val TAG = "BabyVoiceEngine"
         private const val SAMPLE_RATE = 16_000
         private const val FRAME_SAMPLES = 320
 
