@@ -259,30 +259,25 @@ fun CounterApp(repo: CounterRepository) {
         while (true) {
             voiceModelSummary = withContext(Dispatchers.IO) {
                 val mgr = OfflineSpeechModelManager(context.applicationContext)
-                val ready = listOf(mgr.isInstalled(false), mgr.isInstalled(true),
-                    VoskOfflineModelInstaller.isInstalled(context, "hi"),
-                    VoskOfflineModelInstaller.isInstalled(context, "en")).count { it }
+                val flags = listOf(mgr.isInstalled(false), mgr.isInstalled(true))
                 val workManager = androidx.work.WorkManager.getInstance(context)
-                val modelTags = listOf("sherpa_mr", "sherpa_en", "vosk_hi", "vosk_en")
-                val worksByTag = modelTags.map { tag ->
+                val works = listOf("sherpa_mr", "sherpa_en").map { tag ->
                     tag to runCatching { workManager.getWorkInfosByTag(tag).get().firstOrNull() }.getOrNull()
                 }
-                val installedFlags = listOf(mgr.isInstalled(false), mgr.isInstalled(true),
-                    VoskOfflineModelInstaller.isInstalled(context, "hi"), VoskOfflineModelInstaller.isInstalled(context, "en"))
-                val combinedProgress = worksByTag.indices.sumOf { index ->
-                    val info = worksByTag[index].second
+                val ready = flags.count { it }
+                val progress = flags.indices.sumOf { index ->
+                    val info = works[index].second
                     when {
-                        installedFlags[index] -> 100
-                        info?.state == androidx.work.WorkInfo.State.SUCCEEDED -> 100
+                        flags[index] || info?.state == androidx.work.WorkInfo.State.SUCCEEDED -> 100
                         info?.state == androidx.work.WorkInfo.State.RUNNING -> info.progress.getInt("progress", 0).coerceIn(0, 100)
                         else -> 0
                     }
-                } / 4
-                if (ready == 4) {
-                    if (english) "4/4 ready · 100%" else "4/4 तयार · 100%"
-                } else if (worksByTag.any { it.second?.state == androidx.work.WorkInfo.State.RUNNING } || combinedProgress > 0) {
-                    if (english) "All 4 models · $combinedProgress% downloaded" else "चारही मॉडेल · $combinedProgress% डाउनलोड"
-                } else if (english) "$ready/4 ready · $combinedProgress%" else "$ready/4 तयार · $combinedProgress%"
+                } / 2
+                if (ready == 2) {
+                    if (english) "2/2 ready · 100%" else "2/2 तयार · 100%"
+                } else if (works.any { it.second?.state == androidx.work.WorkInfo.State.RUNNING } || progress > 0) {
+                    if (english) "Baby voice models · $progress% downloaded" else "बाळ आवाज मॉडेल · $progress% डाउनलोड"
+                } else if (english) "$ready/2 ready · $progress%" else "$ready/2 तयार · $progress%"
             }
             delay(1800)
         }
