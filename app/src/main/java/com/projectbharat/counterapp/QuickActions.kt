@@ -30,7 +30,6 @@ import java.time.format.DateTimeFormatter
 
 object CounterQuickActions {
     const val ACTION_START_BABY = "com.projectbharat.counterapp.action.START_BABY"
-    const val ACTION_START_JAPA = "com.projectbharat.counterapp.action.START_JAPA"
     const val ACTION_BABY_ADD = "com.projectbharat.counterapp.action.BABY_ADD"
     const val ACTION_BABY_UNDO = "com.projectbharat.counterapp.action.BABY_UNDO"
     const val EXTRA_BABY_SESSION_ID = "baby_session_id"
@@ -50,13 +49,11 @@ object CounterQuickActions {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
 
     fun publishShortcuts(context: Context, categories: List<com.projectbharat.counterapp.data.CounterCategory>) {
-        val kinds = listOf("BABY", "MANTRA")
+        val kinds = listOf("BABY")
         val shortcuts = kinds.mapNotNull { kind ->
             val category = categories.firstOrNull { it.kind == kind } ?: return@mapNotNull null
             val (short, long) = when (kind) {
                 "BABY" -> "Baby" to "Start baby movement session"
-                "MANTRA" -> "Japa" to "Start Japa counter"
-                else -> "Counter" to "Open counter"
             }
             ShortcutInfoCompat.Builder(context, "counter_${kind.lowercase()}")
                 .setShortLabel(short).setLongLabel(long)
@@ -83,7 +80,7 @@ object QuickActionsNotification {
         val manager = context.getSystemService(NotificationManager::class.java)
         if (Build.VERSION.SDK_INT >= 26) {
             manager.createNotificationChannel(NotificationChannel(CHANNEL, "Counter quick actions", NotificationManager.IMPORTANCE_LOW).apply {
-                description = "Shortcuts to start a baby movement session or Japa"
+                description = "Start baby movement session"
                 setShowBadge(false)
             })
         }
@@ -93,15 +90,13 @@ object QuickActionsNotification {
         val notification = NotificationCompat.Builder(context, CHANNEL)
             .setSmallIcon(android.R.drawable.ic_menu_today)
             .setContentTitle("Daily Counter")
-            .setContentText("Quick start · Baby session · Japa")
+            .setContentText("Quick start · Baby movement session")
             .setContentIntent(open)
             .setAutoCancel(false)
             .setOnlyAlertOnce(true)
             .setCategory(NotificationCompat.CATEGORY_STATUS)
             .addAction(android.R.drawable.ic_menu_my_calendar, "Start session",
                 CounterQuickActions.activityPending(context, "BABY", 7103))
-            .addAction(android.R.drawable.ic_media_play, "Start Japa",
-                CounterQuickActions.activityPending(context, "MANTRA", 7104))
             .build()
         runCatching { NotificationManagerCompat.from(context).notify(NOTIFICATION_ID, notification) }
     }
@@ -170,7 +165,6 @@ class QuickActionReceiver : BroadcastReceiver() {
                 val dao = CounterDatabase.get(app).dao()
                 val categories = dao.categories().first()
                 val baby = categories.firstOrNull { it.kind == "BABY" }
-                val mantra = categories.firstOrNull { it.kind == "MANTRA" }
                 when (action) {
                     CounterQuickActions.ACTION_BABY_ADD, CounterQuickActions.ACTION_BABY_UNDO -> {
                         val sessionId = intent?.getLongExtra(CounterQuickActions.EXTRA_BABY_SESSION_ID, -1L) ?: -1L
@@ -195,16 +189,6 @@ class QuickActionReceiver : BroadcastReceiver() {
                             openCounter(app, "BABY")
                         }
                     }
-                    CounterQuickActions.ACTION_START_JAPA -> {
-                        val ready = hasPermission(app, Manifest.permission.RECORD_AUDIO)
-                        if (ready && mantra != null) {
-                            val prefs = app.getSharedPreferences("chant_settings", Context.MODE_PRIVATE)
-                            val target = prefs.getString("target_${mantra.id}", "राम") ?: "राम"
-                            val language = if (target.any { it in '\u0900'..'\u097F' }) "hi" else "en"
-                            ChantRecognitionService.start(app, mantra.id, target, language)
-                        }
-                        openCounter(app, "MANTRA")
-                    }
                 }
                 CounterHomeWidget.refresh(app)
             } catch (_: Exception) {
@@ -214,9 +198,6 @@ class QuickActionReceiver : BroadcastReceiver() {
             }
         }
     }
-
-    private fun hasPermission(context: Context, permission: String): Boolean =
-        Build.VERSION.SDK_INT < 23 || ContextCompat.checkSelfPermission(context, permission) == PackageManager.PERMISSION_GRANTED
 
     private fun openCounter(context: Context, kind: String) {
         val launch = Intent(context, MainActivity::class.java)
@@ -245,16 +226,12 @@ class CounterHomeWidget : android.appwidget.AppWidgetProvider() {
                 val today = date.toString()
                 val todayLabel = date.format(DateTimeFormatter.ofPattern("EEE, dd MMM"))
                 val baby = categories.firstOrNull { it.kind == "BABY" }
-                val mantra = categories.firstOrNull { it.kind == "MANTRA" }
                 val babyCount = baby?.let { dao.countNow(it.id, today) } ?: 0
-                val mantraCount = mantra?.let { dao.countNow(it.id, today) } ?: 0
                 ids.forEach { id ->
                     val views = RemoteViews(context.packageName, R.layout.counter_widget)
                     views.setTextViewText(R.id.widget_date, todayLabel)
                     views.setTextViewText(R.id.widget_baby_action, "👶  BABY\n$babyCount moves\n＋ Session")
-                    views.setTextViewText(R.id.widget_japa_action, "📿  JAPA\n$mantraCount chants\n＋ Start")
                     views.setOnClickPendingIntent(R.id.widget_baby_action, CounterQuickActions.activityPending(context, "BABY", 8101))
-                    views.setOnClickPendingIntent(R.id.widget_japa_action, CounterQuickActions.activityPending(context, "MANTRA", 8102))
                     manager.updateAppWidget(id, views)
                 }
             } finally {
