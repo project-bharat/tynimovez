@@ -59,15 +59,11 @@ fun VoiceModelsDialog(english: Boolean, onDismiss: () -> Unit) {
                 val definitions = listOf(
                     Triple("sherpa_mr", "Sherpa-ONNX · Marathi", "Baby movement voice counting"),
                     Triple("sherpa_en", "Sherpa-ONNX · English", "Baby movement voice counting"),
-                    Triple("vosk_hi", "Vosk · Hindi / Sanskrit", "Japa and mantra recognition"),
-                    Triple("vosk_en", "Vosk · English", "Japa and mantra recognition")
                 )
                 definitions.map { (key, title, purpose) ->
                     val installed = when (key) {
                         "sherpa_mr" -> manager.isInstalled(false)
                         "sherpa_en" -> manager.isInstalled(true)
-                        "vosk_hi" -> VoskOfflineModelInstaller.isInstalled(context, "hi")
-                        else -> VoskOfflineModelInstaller.isInstalled(context, "en")
                     }
                     val info = runCatching { workManager.getWorkInfosByTag(key).get().lastOrNull() }.getOrNull()
                     VoiceModelStatus(
