@@ -170,7 +170,7 @@ fun BabyVoiceCountControl(
                 }
             }
             check(files.language == if (english) "en" else "mr") { "The downloaded speech model does not match the selected app language" }
-            stateCallback.value(false, if (english) "Loading offline model…" else "ऑफलाइन मॉडेल लोड होत आहे…", "", 0)
+            stateCallback.value(false, if (english) "Initializing voice engine…" else "आवाज इंजिन सुरू करत आहे…", "", 0)
             engine = SherpaOfflineSpeechEngine(
                 modelFiles = files,
                 english = english,
@@ -186,6 +186,8 @@ fun BabyVoiceCountControl(
                     }
                 }
             )
+            // start() now waits for actual native initialization and mic acquisition,
+            // or reports a bounded timeout/error instead of leaving the UI stuck.
             withContext(Dispatchers.IO) { engine.start() }
             awaitCancellation()
         } catch (error: kotlinx.coroutines.CancellationException) {
@@ -198,8 +200,13 @@ fun BabyVoiceCountControl(
         } finally {
             // LaunchedEffect is cancelled on language changes. Cleanup must outlive that
             // cancellation so the previous AudioRecord/model is fully stopped before restart.
-            withContext(NonCancellable + Dispatchers.IO) { engine?.stop() }
-            engineMutex.unlock()
+            try {
+                withContext(NonCancellable + Dispatchers.IO) { engine?.stop() }
+            } finally {
+                // Never strand the mutex if native shutdown throws; subsequent toggles
+                // must be able to attempt a fresh engine instance.
+                if (engineMutex.isLocked) engineMutex.unlock()
+            }
         }
     }
 
