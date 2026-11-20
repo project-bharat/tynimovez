@@ -186,12 +186,6 @@ class CounterViewModel(private val repo: CounterRepository) : ViewModel() {
     val archivedCategories = repo.archivedCategories.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
     fun count(id: Long) = repo.today(id)
     fun logsForDay(id: Long, date: LocalDate) = repo.logsForDay(id, date)
-    fun mantraLogsForDay(id: Long, date: LocalDate) = repo.mantraLogsForDay(id, date)
-    fun allMantraLogs(id: Long) = repo.allMantraLogs(id)
-    fun mantraToday(id: Long, mantra: String) = repo.mantraToday(id, mantra)
-    fun mantraAllTime(id: Long, mantra: String) = repo.mantraAllTime(id, mantra)
-    fun mantraWeek(id: Long, mantra: String) = repo.mantraWeek(id, mantra)
-    suspend fun addMantra(id: Long, mantra: String) = repo.addMantraCount(id, mantra)
     suspend fun updateLog(log: CounterLog) = repo.updateLog(log)
     suspend fun deleteLog(id: Long) = repo.deleteLog(id)
     fun week(id: Long) = repo.week(id)
@@ -296,11 +290,8 @@ fun CounterApp(repo: CounterRepository) {
 
     var weekly by remember { mutableStateOf(false) }
     var monthlyHistory by remember { mutableStateOf(false) }
-    var japaReportScreen by remember { mutableStateOf(false) }
     var historyMonth by remember { mutableStateOf(LocalDate.now().withDayOfMonth(1)) }
-    var addDialog by remember { mutableStateOf(false) }
     var remindersScreen by remember { mutableStateOf(false) }
-    var categoryScreen by remember { mutableStateOf(false) }
     var backupScreen by remember { mutableStateOf(false) }
     var voiceModelsDialog by remember { mutableStateOf(false) }
     var backupMessage by remember { mutableStateOf<String?>(null) }
@@ -318,7 +309,6 @@ fun CounterApp(repo: CounterRepository) {
     val shortcutBabyVoice = activity?.launchBabyVoice == true
     var autoStartBabyVoice by remember { mutableStateOf(false) }
     LaunchedEffect(shortcutBabyVoice) { if (shortcutBabyVoice) autoStartBabyVoice = true }
-    var mantraTarget by remember { mutableStateOf(context.getSharedPreferences("chant_settings", android.content.Context.MODE_PRIVATE).getString("target_1", "राम") ?: "राम") }
     var showPermissionIntro by remember {
         mutableStateOf(!context.getSharedPreferences("app_setup", android.content.Context.MODE_PRIVATE).getBoolean("permission_intro_seen", false))
     }
@@ -354,63 +344,22 @@ fun CounterApp(repo: CounterRepository) {
         CounterQuickActions.publishShortcuts(context, categories)
         CounterHomeWidget.refresh(context)
     }
-    LaunchedEffect(categories, shortcutKind, shortcutQuickStart, shortcutBabyVoice) {
-        shortcutKind?.let { kind ->
-            categories.firstOrNull { it.kind == kind }?.let { category ->
-                selectedId = category.id
-                if (shortcutQuickStart) when (kind) {
-                    "BABY" -> scope.launch { vm.startSession(category.id) }
-                    "MANTRA" -> {
-                        val micGranted = ActivityCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED
-                        if (micGranted) {
-                            val prefs = context.getSharedPreferences("chant_settings", android.content.Context.MODE_PRIVATE)
-                            val target = prefs.getString("target_${category.id}", "राम") ?: "राम"
-                            mantraTarget = target
-                            val language = if (target.any { it in '\u0900'..'\u097F' }) "hi" else "en"
-                            ChantRecognitionService.start(context, category.id, target, language)
-                        }
-                    }
-                }
-            }
-        }
-        if (shortcutKind != null) activity?.consumeLaunchCounterKind()
-    }
     val selected = categories.firstOrNull { it.id == selectedId } ?: categories.firstOrNull()
     LaunchedEffect(categories) { if (categories.isNotEmpty() && categories.none { it.id == selectedId }) selectedId = categories.first().id }
 
-    LaunchedEffect(selected?.id, selected?.kind) {
-        if (selected?.kind == "MANTRA") {
-            mantraTarget = context.getSharedPreferences("chant_settings", android.content.Context.MODE_PRIVATE)
-                .getString("target_${selected.id}", "राम") ?: "राम"
-        }
-    }
-    val countFlow = remember(selected?.id, selected?.kind, mantraTarget) {
-        selected?.let { if (it.kind == "MANTRA") vm.mantraToday(it.id, mantraTarget) else vm.count(it.id) } ?: flowOf(0)
-    }
-    val mantraTotalFlow = remember(selected?.id, selected?.kind, mantraTarget) {
-        selected?.takeIf { it.kind == "MANTRA" }?.let { vm.mantraAllTime(it.id, mantraTarget) } ?: flowOf(0)
-    }
-    val weekFlow = remember(selected?.id, selected?.kind, mantraTarget) {
-        selected?.let { if (it.kind == "MANTRA") vm.mantraWeek(it.id, mantraTarget) else vm.week(it.id) } ?: flowOf(emptyList())
-    }
+    val countFlow = remember(selected?.id) { selected?.let { vm.count(it.id) } ?: flowOf(0) }
+    val weekFlow = remember(selected?.id) { selected?.let { vm.week(it.id) } ?: flowOf(emptyList()) }
     val averageFlow = remember(selected?.id) { selected?.let { if (it.kind == "BABY") vm.averageBabyTimeToTen(it.id) else vm.average(it.id) } ?: flowOf(null) }
     val sessionFlow = remember(selected?.id, historyDate) { selected?.let { vm.sessions(it.id, historyDate.toString()) } ?: flowOf(emptyList()) }
-    val historyLogsFlow = remember(selected?.id, selected?.kind, historyDate) {
-        selected?.let { if (it.kind == "MANTRA") vm.mantraLogsForDay(it.id, historyDate) else vm.logsForDay(it.id, historyDate) } ?: flowOf(emptyList())
-    }
-    val allMantraLogsFlow = remember(selected?.id, selected?.kind) {
-        selected?.takeIf { it.kind == "MANTRA" }?.let { vm.allMantraLogs(it.id) } ?: flowOf(emptyList())
-    }
+    val historyLogsFlow = remember(selected?.id, historyDate) { selected?.let { vm.logsForDay(it.id, historyDate) } ?: flowOf(emptyList()) }
     val latestFlow = remember(selected?.id) { selected?.let { vm.latestSession(it.id) } ?: flowOf(null) }
     val monthFlow = remember(selected?.id, historyMonth) { selected?.let { vm.monthSessions(it.id, historyMonth) } ?: flowOf(emptyList()) }
     val count by countFlow.collectAsStateWithLifecycle(0)
-    val mantraTotal by mantraTotalFlow.collectAsStateWithLifecycle(0)
     LaunchedEffect(count, selected?.id) { CounterHomeWidget.refresh(context) }
     val days by weekFlow.collectAsStateWithLifecycle(emptyList())
     val average by averageFlow.collectAsStateWithLifecycle(null)
     val sessions by sessionFlow.collectAsStateWithLifecycle(emptyList())
     val historyLogs by historyLogsFlow.collectAsStateWithLifecycle(emptyList())
-    val allMantraLogs by allMantraLogsFlow.collectAsStateWithLifecycle(emptyList())
     val latestSession by latestFlow.collectAsStateWithLifecycle(null)
     LaunchedEffect(latestSession?.id, clock) { latestSession?.let { val limit = CounterRepository.TWO_HOURS_MS; if (it.endedAt == null && clock >= it.startedAt + limit) vm.completeSession(it.id) } }
     val monthSessions by monthFlow.collectAsStateWithLifecycle(emptyList())
@@ -470,17 +419,17 @@ fun CounterApp(repo: CounterRepository) {
                                 icon = { Icon(glyph, null) },
                                 label = { Text(if (english) "Baby Movements" else "बाळाची हालचाल") },
                                 selected = selected?.id == cat.id && !remindersScreen,
-                                onClick = { selectedId = cat.id; remindersScreen = false; weekly = false; monthlyHistory = false; categoryScreen = false; backupScreen = false; scope.launch { drawerState.close() } }
+                                onClick = { selectedId = cat.id; remindersScreen = false; weekly = false; monthlyHistory = false; backupScreen = false; scope.launch { drawerState.close() } }
                             )
                         }
                         
                         Divider(Modifier.padding(vertical = 8.dp))
-                        NavigationDrawerItem(icon = { Icon(Icons.Default.NotificationsActive, null) }, label = { Text(if (english) "Reminders" else "स्मरणपत्रे") }, selected = remindersScreen, onClick = { remindersScreen = true; weekly = false; monthlyHistory = false; categoryScreen = false; backupScreen = false; scope.launch { drawerState.close() } })
+                        NavigationDrawerItem(icon = { Icon(Icons.Default.NotificationsActive, null) }, label = { Text(if (english) "Reminders" else "स्मरणपत्रे") }, selected = remindersScreen, onClick = { remindersScreen = true; weekly = false; monthlyHistory = false; backupScreen = false; scope.launch { drawerState.close() } })
                         
-                        NavigationDrawerItem(icon = { Icon(Icons.Default.Save, null) }, label = { Text(if (english) "Backup & export" else "बॅकअप व निर्यात") }, selected = backupScreen, onClick = { backupScreen = true; categoryScreen = false; remindersScreen = false; weekly = false; monthlyHistory = false; scope.launch { drawerState.close() } })
+                        NavigationDrawerItem(icon = { Icon(Icons.Default.Save, null) }, label = { Text(if (english) "Backup & export" else "बॅकअप व निर्यात") }, selected = backupScreen, onClick = { backupScreen = true; remindersScreen = false; weekly = false; monthlyHistory = false; scope.launch { drawerState.close() } })
                         NavigationDrawerItem(icon = { Icon(Icons.Default.Download, null) }, label = { Text((if (english) "Offline voice models" else "ऑफलाइन आवाज मॉडेल") + " · " + voiceModelSummary) }, selected = voiceModelsDialog, onClick = { voiceModelsDialog = true; scope.launch { drawerState.close() } })
-                        NavigationDrawerItem(icon = { Icon(Icons.Default.BarChart, null) }, label = { Text(if (english) "Weekly report" else "साप्ताहिक अहवाल") }, selected = weekly, onClick = { weekly = true; remindersScreen = false; monthlyHistory = false; categoryScreen = false; backupScreen = false; scope.launch { drawerState.close() } })
-                        NavigationDrawerItem(icon = { Icon(Icons.Default.History, null) }, label = { Text(if (english) "History" else "इतिहास") }, selected = monthlyHistory, onClick = { monthlyHistory = true; remindersScreen = false; weekly = false; categoryScreen = false; backupScreen = false; scope.launch { drawerState.close() } })
+                        NavigationDrawerItem(icon = { Icon(Icons.Default.BarChart, null) }, label = { Text(if (english) "Weekly report" else "साप्ताहिक अहवाल") }, selected = weekly, onClick = { weekly = true; remindersScreen = false; monthlyHistory = false; backupScreen = false; scope.launch { drawerState.close() } })
+                        NavigationDrawerItem(icon = { Icon(Icons.Default.History, null) }, label = { Text(if (english) "History" else "इतिहास") }, selected = monthlyHistory, onClick = { monthlyHistory = true; remindersScreen = false; weekly = false; backupScreen = false; scope.launch { drawerState.close() } })
                         NavigationDrawerItem(
                             icon = { Icon(Icons.Default.Language, null) },
                             label = { Text(if (english) "मराठी" else "English") },
@@ -534,7 +483,7 @@ fun CounterApp(repo: CounterRepository) {
                     Spacer(Modifier.weight(1f))
                     IconButton(onClick = {
                         remindersScreen = true; weekly = false; monthlyHistory = false
-                        categoryScreen = false; backupScreen = false
+                        backupScreen = false
                     }) {
                         Icon(Icons.Default.NotificationsActive, contentDescription = if (english) "Reminders" else "स्मरणपत्रे", tint = Color(0xFFF3EEE3))
                     }
@@ -542,7 +491,7 @@ fun CounterApp(repo: CounterRepository) {
                         historyDate = LocalDate.now()
                         historyMonth = LocalDate.now().withDayOfMonth(1)
                         monthlyHistory = true; remindersScreen = false; weekly = false
-                        categoryScreen = false; backupScreen = false
+                        backupScreen = false
                     }) {
                         Icon(Icons.Default.History, contentDescription = if (english) "History" else "इतिहास", tint = Color(0xFFF3EEE3))
                     }
@@ -556,12 +505,7 @@ fun CounterApp(repo: CounterRepository) {
                         onExportBackup = { jsonExportLauncher.launch("daily-counter-backup.json") },
                         onImportBackup = { jsonImportLauncher.launch(arrayOf("application/json", "text/*")) },
                         onExportCsv = { csvExportLauncher.launch("daily-counter-history.csv") })
-                } else if (categoryScreen) {
-                    CategoryManagementScreen(categories = categories, archivedCategories = archivedCategories, english = english, ink = ink,
-                        onAdd = { mr, en -> scope.launch { vm.addCategory(mr, en) } },
-                        onUpdate = { item -> scope.launch { vm.updateCategory(item) } },
-                        onArchive = { item -> scope.launch { runCatching { vm.archiveCategory(item.id) }.onFailure { backupMessage = it.message } } },
-                        onRestore = { item -> scope.launch { vm.restoreCategory(item.id) } })
+                } else if (remindersScreen) {
                 } else if (remindersScreen) {
                     ReminderSettingsScreen(english = english, ink = ink)
                 } else
@@ -581,11 +525,7 @@ fun CounterApp(repo: CounterRepository) {
                         onUpdate = { log -> scope.launch { vm.updateLog(log) } },
                         onDelete = { log -> scope.launch { vm.deleteLog(log.id) } }
                     )
-                } else if (japaReportScreen && selected?.kind == "MANTRA") {
-                    JapaReportScreen(
-                        logs = allMantraLogs, english = english, ink = ink,
-                        onBack = { japaReportScreen = false }
-                    )
+                } else if (weekly) {
                 } else if (weekly) {
                     Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
                         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -641,32 +581,7 @@ fun CounterApp(repo: CounterRepository) {
                         onConfirmDetections = { ids -> scope.launch { ids.forEach { vm.confirmDetection(it) } } },
                         onDismissDetections = { ids -> scope.launch { ids.forEach { vm.dismissDetection(it) } } }
                     )
-                } else if (selected?.kind == "MANTRA") {
-                    AutoChantCounterScreen(
-                        categoryId = selected.id, count = count, totalCount = mantraTotal, english = english, ink = ink,
-                        onMantraChange = { mantra -> mantraTarget = mantra },
-                        onManualCount = { mantra ->
-                            haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                            clickTone.startTone(ToneGenerator.TONE_PROP_BEEP, 65)
-                            scope.launch { vm.addMantra(selected.id, mantra) }
-                        }
-                    )
-                } else if (selected != null) {
-                    CounterTapScreen(
-                        english = english, count = count, goal = selected.goal, kind = selected.kind,
-                        categoryTitle = if (english) selected.titleEn else selected.titleMr,
-                        ink = ink, onTap = { haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove); clickTone.startTone(ToneGenerator.TONE_PROP_BEEP, 65); scope.launch { vm.add(selected.id, null) } },
-                        onUndo = { scope.launch { vm.undo(selected.id) } }, onReset = { resetDialog = true }
-                    )
                 }
-                }
-                if (selected != null && selected.kind != "BABY" && !backupScreen && !categoryScreen && !remindersScreen && !weekly && !monthlyHistory && !japaReportScreen) {
-                    TextButton(onClick = {
-                        if (selected.kind == "MANTRA") japaReportScreen = true
-                        else { historyDate = LocalDate.now(); historyMonth = LocalDate.now().withDayOfMonth(1); monthlyHistory = true }
-                    }) {
-                        Icon(Icons.Default.History, null); Spacer(Modifier.width(6.dp)); Text(if (selected.kind == "MANTRA") (if (english) "My Japa Report" else "माझा जप अहवाल") else (if (english) "View history & analytics" else "संपूर्ण इतिहास व विश्लेषण"))
-                    }
                 }
             }
         }
@@ -692,14 +607,6 @@ fun CounterApp(repo: CounterRepository) {
             },
             dismissButton = { TextButton(onClick = { pendingRestoreUri = null }) { Text(if (english) "Cancel" else "रद्द") } }
         )
-    }
-    if (addDialog) {
-        var mr by remember { mutableStateOf("") }
-        var en by remember { mutableStateOf("") }
-        AlertDialog(onDismissRequest = { addDialog = false }, title = { Text(if (english) "New category" else "नवीन प्रकार") },
-            text = { Column { OutlinedTextField(mr, { mr = it }, label = { Text("मराठी नाव") }); OutlinedTextField(en, { en = it }, label = { Text("English name") }) } },
-            confirmButton = { TextButton(onClick = { if (mr.isNotBlank() || en.isNotBlank()) scope.launch { vm.addCategory(mr.ifBlank { en }, en.ifBlank { mr }) }; addDialog = false }) { Text(if (english) "Add" else "जोडा") } },
-            dismissButton = { TextButton(onClick = { addDialog = false }) { Text(if (english) "Cancel" else "रद्द") } })
     }
     if (resetDialog) AlertDialog(onDismissRequest = { resetDialog = false }, title = { Text(if (english) "Reset today's count?" else "आजची मोजणी रीसेट करायची?") },
         confirmButton = { TextButton(onClick = { scope.launch { selected?.let { vm.reset(it.id) } }; resetDialog = false }) { Text(if (english) "Reset" else "रीसेट") } },
@@ -1010,47 +917,6 @@ private fun BabyMovementScreen(
     }
 }
 
-@Composable
-private fun CounterTapScreen(english:Boolean,count:Int,goal:Int,kind:String,categoryTitle:String,ink:Color,onTap:()->Unit,onUndo:()->Unit,onReset:()->Unit) {
-    val mantra = kind == "MANTRA"
-    val tapScale = remember { Animatable(1f) }
-    val tapScope = rememberCoroutineScope()
-    Column(Modifier.fillMaxSize(),horizontalAlignment=Alignment.CenterHorizontally) {
-        Card(Modifier.fillMaxWidth(),shape=RoundedCornerShape(26.dp),colors=CardDefaults.cardColors(containerColor=MaterialTheme.colorScheme.surface)) {
-            Column(Modifier.fillMaxWidth().padding(20.dp),horizontalAlignment=Alignment.CenterHorizontally) {
-                Box(Modifier.size(58.dp).background(if(mantra) Color(0xFFEDE4FA) else Color(0xFFDDF1E8),CircleShape),contentAlignment=Alignment.Center) {
-                    Icon(Icons.Default.SelfImprovement,null,tint=Color(0xFF7855A6),modifier=Modifier.size(30.dp))
-                }
-                Spacer(Modifier.height(8.dp))
-                Text(if(english) "TODAY" else "आज",color=ink.copy(alpha=.55f),style=MaterialTheme.typography.labelMedium,fontWeight=FontWeight.Bold)
-                Text(count.toString(),color=ink,style=MaterialTheme.typography.displayLarge,fontWeight=FontWeight.ExtraBold)
-                Text(if(mantra) { if(english) "CHANTS" else "जप" } else categoryTitle,color=ink.copy(alpha=.55f),style=MaterialTheme.typography.labelSmall,fontWeight=FontWeight.Bold)
-                if(mantra) {
-                    Text((count/108).toString()+" "+(if(english) "mala" else "माळ")+" · "+(count%108)+"/108",color=Gold,style=MaterialTheme.typography.titleMedium,fontWeight=FontWeight.Bold,modifier=Modifier.padding(top=9.dp))
-                    Row(Modifier.padding(top=8.dp),horizontalArrangement=Arrangement.Center) { repeat(12) { index -> Box(Modifier.padding(3.dp).size(11.dp).background(if(index<count%108*12/108) Gold else Color(0xFFE8E1D7),CircleShape)) } }
-                }
-            }
-        }
-        Spacer(Modifier.weight(1f))
-        val tapInteraction = remember { MutableInteractionSource() }
-        Box(Modifier.size(214.dp).graphicsLayer(scaleX = tapScale.value, scaleY = tapScale.value).background(Brush.linearGradient(if(mantra) listOf(Color(0xFFE9DDF8),Color(0xFFD8C4F0)) else listOf(Color(0xFFDDF1E8),Color(0xFFBDE2D0))),CircleShape).clickable(interactionSource = tapInteraction, indication = null) { tapScope.launch { tapScale.animateTo(.90f, tween(75)); tapScale.animateTo(1.08f, tween(110)); tapScale.animateTo(1f, tween(180)) }; onTap() },contentAlignment=Alignment.Center) {
-            Column(horizontalAlignment=Alignment.CenterHorizontally) {
-                Icon(Icons.Default.SelfImprovement,null,tint=ink,modifier=Modifier.size(36.dp))
-                Text("+1",color=ink,style=MaterialTheme.typography.displayMedium,fontWeight=FontWeight.ExtraBold)
-                Text(if(english) "TAP TO ADD" else "मोजणी वाढवा",color=ink,style=MaterialTheme.typography.labelSmall,fontWeight=FontWeight.Bold)
-            }
-        }
-        Spacer(Modifier.height(20.dp))
-        Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(10.dp)) {
-            OutlinedButton(onClick=onUndo,modifier=Modifier.weight(1f),shape=RoundedCornerShape(15.dp)) { Icon(Icons.Default.Undo,null); Spacer(Modifier.width(5.dp)); Text(if(english) "Undo" else "मागे") }
-            OutlinedButton(onClick=onReset,modifier=Modifier.weight(1f),shape=RoundedCornerShape(15.dp)) { Icon(Icons.Default.Refresh,null); Spacer(Modifier.width(5.dp)); Text(if(english) "Reset" else "रीसेट") }
-        }
-        Spacer(Modifier.weight(.8f))
-    }
-}
-
-
-@Composable
 private fun ReminderSettingsScreen(english: Boolean, ink: Color) {
     val context = LocalContext.current
     val activity = context as? ComponentActivity
