@@ -183,7 +183,6 @@ class MainActivity : ComponentActivity() {
 
 class CounterViewModel(private val repo: CounterRepository) : ViewModel() {
     val categories = repo.categories.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
-    val archivedCategories = repo.archivedCategories.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
     fun count(id: Long) = repo.today(id)
     fun logsForDay(id: Long, date: LocalDate) = repo.logsForDay(id, date)
     suspend fun updateLog(log: CounterLog) = repo.updateLog(log)
@@ -206,10 +205,6 @@ class CounterViewModel(private val repo: CounterRepository) : ViewModel() {
     suspend fun updateBabySessionRecord(session: BabySession) = repo.updateBabySessionRecord(session)
     suspend fun resumeSession(sessionId: Long) = repo.resumeBabySession(sessionId)
     suspend fun completeSession(sessionId: Long) = repo.completeExpiredBabySession(sessionId)
-    suspend fun addCategory(mr: String, en: String) = repo.addCategory(mr, en)
-    suspend fun updateCategory(category: CounterCategory) = repo.updateCategory(category)
-    suspend fun archiveCategory(id: Long) = repo.archiveCategory(id)
-    suspend fun restoreCategory(id: Long) = repo.restoreCategory(id)
     suspend fun add(id: Long, strength: String?, duration: Long? = null) = repo.add(id, strength, duration)
     suspend fun addCount(id: Long, amount: Int) = repo.addCount(id, amount)
     suspend fun undo(id: Long) = repo.undo(id)
@@ -241,7 +236,6 @@ private fun periodLabel(period: String, english: Boolean): String = when (period
 fun CounterApp(repo: CounterRepository) {
     val vm: CounterViewModel = viewModel(factory = CounterViewModel.Factory(repo))
     val categories by vm.categories.collectAsStateWithLifecycle()
-    val archivedCategories by vm.archivedCategories.collectAsStateWithLifecycle()
     val context = LocalContext.current
     var selectedId by remember { mutableLongStateOf(1L) }
     var english by remember(context) {
@@ -338,6 +332,16 @@ fun CounterApp(repo: CounterRepository) {
     LaunchedEffect(categories) {
         CounterQuickActions.publishShortcuts(context, categories)
         CounterHomeWidget.refresh(context)
+    }
+    LaunchedEffect(categories, shortcutKind, shortcutQuickStart, shortcutBabyVoice) {
+        if (shortcutKind == "BABY") {
+            categories.firstOrNull { it.kind == "BABY" }?.let { baby ->
+                selectedId = baby.id
+                if (shortcutQuickStart) scope.launch { vm.startSession(baby.id) }
+                if (shortcutBabyVoice) autoStartBabyVoice = true
+            }
+        }
+        if (shortcutKind != null) activity?.consumeLaunchCounterKind()
     }
     val selected = categories.firstOrNull { it.id == selectedId } ?: categories.firstOrNull()
     LaunchedEffect(categories) { if (categories.isNotEmpty() && categories.none { it.id == selectedId }) selectedId = categories.first().id }
