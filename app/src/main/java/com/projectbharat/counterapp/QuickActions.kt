@@ -54,6 +54,7 @@ object CounterQuickActions {
             val category = categories.firstOrNull { it.kind == kind } ?: return@mapNotNull null
             val (short, long) = when (kind) {
                 "BABY" -> "Baby" to "Start baby movement session"
+                else -> "Baby" to "Start baby movement session"
             }
             ShortcutInfoCompat.Builder(context, "counter_${kind.lowercase()}")
                 .setShortLabel(short).setLongLabel(long)
