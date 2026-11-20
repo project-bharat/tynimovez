@@ -28,8 +28,6 @@ object DailyReminderScheduler {
         DailyReminder(1, "बाळाची हालचाल · सकाळ", "Baby movements · Morning", 9, 0, false),
         DailyReminder(2, "बाळाची हालचाल · दुपार", "Baby movements · Afternoon", 13, 0, false),
         DailyReminder(3, "बाळाची हालचाल · संध्याकाळ", "Baby movements · Evening", 19, 0, false),
-        DailyReminder(4, "जप / मंत्र", "Chanting / Mantra", 7, 0, false),
-        DailyReminder(5, "चालणे", "Walking", 18, 0, false)
     )
 
     fun load(context: Context): List<DailyReminder> {
@@ -58,6 +56,9 @@ object DailyReminderScheduler {
     }
 
     fun rescheduleAll(context: Context) {
+        // Cancel reminders from the previous multi-counter version.
+        cancel(context, 4)
+        cancel(context, 5)
         load(context).filter { it.enabled }.forEach { scheduleNext(context, it) }
     }
 
