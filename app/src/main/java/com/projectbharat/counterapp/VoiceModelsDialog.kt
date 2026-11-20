@@ -64,6 +64,7 @@ fun VoiceModelsDialog(english: Boolean, onDismiss: () -> Unit) {
                     val installed = when (key) {
                         "sherpa_mr" -> manager.isInstalled(false)
                         "sherpa_en" -> manager.isInstalled(true)
+                        else -> false
                     }
                     val info = runCatching { workManager.getWorkInfosByTag(key).get().lastOrNull() }.getOrNull()
                     VoiceModelStatus(
