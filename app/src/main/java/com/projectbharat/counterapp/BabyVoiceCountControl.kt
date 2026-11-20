@@ -139,12 +139,6 @@ fun BabyVoiceCountControl(
         // microphone acquisition. This makes the recognition panel appear immediately,
         // including during rapid start/stop and language changes.
         stateCallback.value(false, if (english) "Starting voice recognition…" else "आवाज ओळख सुरू होत आहे…", "", 0)
-        if (microphoneBusy(context)) {
-            stateCallback.value(false, if (english) "Microphone busy — a call or another app is using it" else "मायक्रोफोन व्यस्त — कॉल किंवा दुसरे अॅप वापरत आहे", "", null)
-            listening = false
-            return@LaunchedEffect
-        }
-
         if (ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
             listening = false
             permissionRequestPending = true
@@ -157,6 +151,13 @@ fun BabyVoiceCountControl(
         engineMutex.lock()
         var engine: SherpaOfflineSpeechEngine? = null
         try {
+            // Check for external microphone use only after the prior engine has fully
+            // stopped and released AudioRecord. This avoids false "busy" on rapid restart.
+            if (microphoneBusy(context)) {
+                stateCallback.value(false, if (english) "Microphone busy — a call or another app is using it" else "मायक्रोफोन व्यस्त — कॉल किंवा दुसरे अॅप वापरत आहे", "", null)
+                listening = false
+                return@LaunchedEffect
+            }
             stateCallback.value(false, if (english) "Checking offline model…" else "ऑफलाइन मॉडेल तपासत आहे…", "", 0)
             val files = withContext(Dispatchers.IO) {
                 manager.installedFiles(english) ?: manager.download(english) { done, total ->
@@ -214,9 +215,7 @@ fun BabyVoiceCountControl(
                 stateCallback.value(false, if (english) "Voice count is off" else "आवाज मोजणी बंद", "", null)
             } else {
                 stateCallback.value(true, if (english) "Starting voice recognition…" else "आवाज ओळख सुरू होत आहे…", "", 0)
-                if (microphoneBusy(context)) {
-                    stateCallback.value(false, if (english) "Microphone busy — a call or another app is using it" else "मायक्रोफोन व्यस्त — कॉल किंवा दुसरे अॅप वापरत आहे", "", null)
-                } else if (ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) {
+                if (ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) {
                     listening = true
                 } else {
                     stateCallback.value(true, if (english) "Microphone permission needed" else "मायक्रोफोन परवानगी आवश्यक", "", 0)
