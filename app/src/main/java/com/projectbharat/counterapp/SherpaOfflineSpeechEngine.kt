@@ -57,7 +57,6 @@ class SherpaOfflineSpeechEngine(
     @Volatile private var recorder: AudioRecord? = null
     @Volatile private var worker: Thread? = null
     @Volatile private var startupFailure: Throwable? = null
-    @Volatile private var startup = CountDownLatch(1)
 
     /**
      * Start is not considered successful until recognizer initialization and microphone
@@ -68,7 +67,6 @@ class SherpaOfflineSpeechEngine(
         check(running.compareAndSet(false, true)) { "Voice engine is already running" }
         startupFailure = null
         val startupSignal = CountDownLatch(1)
-        startup = startupSignal
         worker = Thread({ captureAndDecode(startupSignal) }, "BilanOfflineVoice").apply {
             isDaemon = true
             start()
