@@ -20,7 +20,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginStart="8dp"
-            android:text="BILAN · DAILY COUNTER"
+            android:text="BILAN · BABY MOVEMENT"
             android:textColor="#F3EEE3"
             android:textStyle="bold"
             android:textSize="13sp" />
