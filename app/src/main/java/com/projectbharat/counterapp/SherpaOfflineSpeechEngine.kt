@@ -72,7 +72,7 @@ class SherpaOfflineSpeechEngine(
             start()
         }
         if (!startup.await(timeoutMs, TimeUnit.MILLISECONDS)) {
-            stop()
+            runCatching { stop() }
             throw IllegalStateException("Voice engine startup timed out. Tap voice count to retry.")
         }
         startupFailure?.let { throw IllegalStateException(it.message ?: "Voice engine failed to start", it) }
@@ -93,15 +93,16 @@ class SherpaOfflineSpeechEngine(
 
         val activeWorker = worker
         if (activeWorker != null && activeWorker !== Thread.currentThread()) {
-            var interrupted = false
-            while (activeWorker.isAlive) {
-                try {
-                    activeWorker.join()
-                } catch (_: InterruptedException) {
-                    interrupted = true
-                }
+            try {
+                activeWorker.join(10_000L)
+            } catch (_: InterruptedException) {
+                Thread.currentThread().interrupt()
             }
-            if (interrupted) Thread.currentThread().interrupt()
+            if (activeWorker.isAlive) {
+                // Native model initialization/decode can theoretically stall. Never block
+                // the Compose effect forever; report the failure and let the UI recover.
+                throw IllegalStateException("Voice engine shutdown timed out. Please retry voice count.")
+            }
         }
 
         // The worker's finally block owns release(); only clear references after it exits.
