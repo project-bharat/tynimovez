@@ -106,15 +106,6 @@ import com.projectbharat.counterapp.data.DayTotal
 import com.projectbharat.counterapp.data.CounterLog
 import java.time.LocalDate
 
-private fun registerTrackingReceiver(context: Context, receiver: BroadcastReceiver) {
-    val filter = IntentFilter(TRACKING_STATE_CHANGED)
-    if (Build.VERSION.SDK_INT >= 33) {
-        context.registerReceiver(receiver, filter, Context.RECEIVER_NOT_EXPORTED)
-    } else {
-        context.registerReceiver(receiver, filter)
-    }
-}
-
 @Composable
 fun ExperimentalBabyMotionControl(activeSessionId: Long?, english: Boolean, ink: Color, onDetected: (Long, Float) -> Unit) {
     val context = LocalContext.current
