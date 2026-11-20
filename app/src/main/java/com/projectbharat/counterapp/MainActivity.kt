@@ -671,7 +671,7 @@ private fun BabyMovementScreen(
                 ) {
                     Icon(Icons.Default.DirectionsWalk, contentDescription = null, modifier = Modifier.size(17.dp))
                     Spacer(Modifier.width(5.dp))
-                    Text(if (autoDetect) (if (english) "Auto on" else "ऑटो सुरू") else (if (english) "Auto count" else "ऑटो मोजणी"), style = MaterialTheme.typography.labelSmall, maxLines = 1)
+                    Text(if (autoDetect) (if (english) "Motion on" else "हालचाल सुरू") else (if (english) "Phone motion" else "फोन हालचाल"), style = MaterialTheme.typography.labelSmall, maxLines = 1)
                 }
                 BabyVoiceCountControl(
                     autoStart = autoStartVoice,
@@ -793,7 +793,7 @@ private fun BabyMovementScreen(
                 Column(Modifier.fillMaxWidth().padding(10.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                     Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).background(Navy).padding(horizontal = 12.dp, vertical = 9.dp),
                         verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
-                        Text(if (english) "AUTO DETECTED" else "स्वयंचलित ओळख", color = Color.White, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
+                        Text(if (english) "PHONE MOTION" else "फोनची हालचाल", color = Color.White, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
                         if (autoDetect) {
                             val ready = autoStatus.contains("Ready", true) || autoStatus.contains("तयार", true)
                             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -807,7 +807,7 @@ private fun BabyMovementScreen(
                             }
                         } else Text(if (english) "OFF" else "बंद", color = Color.White.copy(alpha = .8f), style = MaterialTheme.typography.labelSmall)
                     }
-                    Row(Modifier.fillMaxWidth().padding(vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Text(if (english) "This detects movement of your phone—not your baby. Phone movement can create false detections. Review and add only movements you actually felt." else "हा फोनची हालचाल ओळखतो, बाळाची नाही. फोन हलल्यामुळे चुकीच्या नोंदी होऊ शकतात. प्रत्यक्ष जाणवलेल्या हालचालीच जोडा.", modifier = Modifier.fillMaxWidth().padding(top = 8.dp), color = ink.copy(alpha = .75f), style = MaterialTheme.typography.bodySmall)\n                    Row(Modifier.fillMaxWidth().padding(vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                         Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
                             Text(if (english) "Detected" else "ओळखले", color = ink.copy(alpha = .65f), style = MaterialTheme.typography.labelSmall, textAlign = TextAlign.Center)
                             Text(pending.toString(), color = ink, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.ExtraBold, textAlign = TextAlign.Center)
