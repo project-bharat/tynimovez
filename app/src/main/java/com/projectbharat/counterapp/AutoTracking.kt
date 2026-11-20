@@ -171,6 +171,9 @@ fun AutoChantCounterScreen(categoryId: Long, count: Int, totalCount: Int, englis
     var addMantraDialog by remember { mutableStateOf(false) }
     var newMantraMr by remember { mutableStateOf("") }
     var newMantraEn by remember { mutableStateOf("") }
+    var goalsDialog by remember(categoryId) { mutableStateOf(false) }
+    var dailyMalaTarget by remember(categoryId) { mutableIntStateOf(prefs.getInt("daily_mala_target_$categoryId", 3).coerceAtLeast(1)) }
+    var lifetimeJapaTarget by remember(categoryId) { mutableIntStateOf(prefs.getInt("lifetime_japa_target_$categoryId", 10000).coerceAtLeast(108)) }
     var customMantras by remember(categoryId) {
         mutableStateOf(prefs.getStringSet("custom_mantras_$categoryId", emptySet()).orEmpty().map { saved ->
             val parts = saved.split("\u001F", limit = 2)
@@ -301,6 +304,65 @@ fun AutoChantCounterScreen(categoryId: Long, count: Int, totalCount: Int, englis
                             Text(if (english) "MALAS" else "पूर्ण माळा", color = Color(0xFF9A6828), style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, maxLines = 1)
                         }
                     }
+                }
+                // Per-mantra daily and lifetime goals with motivational milestones.
+                val dailyMalasDone = count / 108
+                val dailyGoalCount = dailyMalaTarget * 108
+                val dailyGoalProgress = (count.toFloat() / dailyGoalCount).coerceIn(0f, 1f)
+                val lifetimeProgress = (totalCount.toFloat() / lifetimeJapaTarget).coerceIn(0f, 1f)
+                val milestones = listOf(108, 1188, 2268, 5508, 11664, 54108, 108864, 1080864)
+                val milestoneNames = if (english) listOf("Japa Begin", "Regular Japa", "Japa Devotion", "Japa Sankalp", "Sadhana Path", "Sadhana Dedication", "Maha Sadhana", "Maha Sankalp") else listOf("जप आरंभ", "नियमित जप", "जप निष्ठा", "जप संकल्प", "साधना पथ", "साधना समर्पण", "महासाधना", "महासंकल्प")
+                val earned = milestones.indices.filter { totalCount >= milestones[it] }
+                val nextIndex = milestones.indexOfFirst { totalCount < it }
+                val rankName = if (earned.isEmpty()) (if (english) "Start your first mala" else "पहिली माळ सुरू करा") else milestoneNames[earned.last()]
+                Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(18.dp), colors = CardDefaults.cardColors(containerColor = Color(0xFFF8F4FC))) {
+                    Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(9.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Column(Modifier.weight(1f)) {
+                                Text(if (english) "MY SANKALP" else "माझा संकल्प", color = Color(0xFF68468D), fontWeight = FontWeight.Bold)
+                                Text(if (english) "Daily and lifetime goals for this mantra" else "या मंत्रासाठी दैनिक व आजीवन लक्ष्य", color = ink.copy(alpha = .6f), style = MaterialTheme.typography.labelSmall)
+                            }
+                            TextButton(onClick = { goalsDialog = true }) { Text(if (english) "Edit goals" else "लक्ष्य बदला") }
+                        }
+                        Text((if (english) "Daily malas: " else "दैनिक माळा: ") + "$dailyMalasDone / $dailyMalaTarget", color = ink, fontWeight = FontWeight.SemiBold)
+                        LinearProgressIndicator(progress = { dailyGoalProgress }, modifier = Modifier.fillMaxWidth().height(7.dp), color = Color(0xFF7D59A7), trackColor = Color(0xFFE5DCEB))
+                        Text((if (english) "Lifetime: " else "आजीवन: ") + NumberFormat.getIntegerInstance().format(totalCount) + " / " + NumberFormat.getIntegerInstance().format(lifetimeJapaTarget), color = ink, fontWeight = FontWeight.SemiBold)
+                        LinearProgressIndicator(progress = { lifetimeProgress }, modifier = Modifier.fillMaxWidth().height(7.dp), color = Color(0xFFB68A43), trackColor = Color(0xFFEDE3D3))
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Surface(shape = RoundedCornerShape(50), color = Color(0xFFE8DDF2)) {
+                                Text("✦ $rankName", modifier = Modifier.padding(horizontal = 11.dp, vertical = 6.dp), color = Color(0xFF68468D), style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
+                            }
+                            Spacer(Modifier.weight(1f))
+                            Text((if (english) "Badges " else "बॅज ") + earned.size.toString() + "/" + milestones.size, color = ink.copy(alpha = .65f), style = MaterialTheme.typography.labelSmall)
+                        }
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+                            milestones.indices.forEach { i ->
+                                Surface(Modifier.weight(1f).height(35.dp), shape = RoundedCornerShape(9.dp), color = if (i in earned) Color(0xFFE9D5A8) else Color(0xFFEDE8F0)) {
+                                    Box(contentAlignment = Alignment.Center) { Text(if (i in earned) "★" else "·", color = if (i in earned) Color(0xFF8A6325) else Color(0xFFAAA0B2), style = MaterialTheme.typography.titleMedium) }
+                                }
+                            }
+                        }
+                        if (nextIndex >= 0) {
+                            val previous = if (nextIndex == 0) 0 else milestones[nextIndex - 1]
+                            val towardNext = ((totalCount - previous).toFloat() / (milestones[nextIndex] - previous)).coerceIn(0f, 1f)
+                            Text((if (english) "Next: " else "पुढील: ") + milestoneNames[nextIndex] + " · " + NumberFormat.getIntegerInstance().format(milestones[nextIndex] - totalCount) + (if (english) " japa to go" else " जप बाकी"), color = ink.copy(alpha = .65f), style = MaterialTheme.typography.labelSmall)
+                            LinearProgressIndicator(progress = { towardNext }, modifier = Modifier.fillMaxWidth().height(5.dp), color = Color(0xFFB68A43), trackColor = Color(0xFFEDE3D3))
+                        } else Text(if (english) "All milestones earned for this mantra." else "या मंत्रासाठी सर्व टप्पे पूर्ण.", color = Color(0xFF8A6325), style = MaterialTheme.typography.labelSmall)
+                    }
+                }
+                if (goalsDialog) {
+                    AlertDialog(
+                        onDismissRequest = { goalsDialog = false },
+                        title = { Text(if (english) "Mantra goals" else "मंत्र लक्ष्य") },
+                        text = {
+                            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                OutlinedTextField(value = dailyMalaTarget.toString(), onValueChange = { it.toIntOrNull()?.let { v -> dailyMalaTarget = v.coerceIn(1, 999) } }, label = { Text(if (english) "Daily malas (108 each)" else "दैनिक माळा (प्रत्येकी १०८)") }, singleLine = true)
+                                OutlinedTextField(value = lifetimeJapaTarget.toString(), onValueChange = { it.toIntOrNull()?.let { v -> lifetimeJapaTarget = v.coerceAtLeast(108) } }, label = { Text(if (english) "Lifetime japa target" else "आजीवन जप लक्ष्य") }, singleLine = true)
+                            }
+                        },
+                        confirmButton = { TextButton(onClick = { prefs.edit().putInt("daily_mala_target_$categoryId", dailyMalaTarget).putInt("lifetime_japa_target_$categoryId", lifetimeJapaTarget).apply(); goalsDialog = false }) { Text(if (english) "Save" else "जतन") } },
+                        dismissButton = { TextButton(onClick = { goalsDialog = false }) { Text(if (english) "Cancel" else "रद्द") } }
+                    )
                 }
                 Text(target, color = if (MaterialTheme.colorScheme.background == Color.White) Color(0xFF38234F) else ink, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.ExtraBold, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth().padding(vertical = 26.dp))
                 val manualInteraction = remember { MutableInteractionSource() }
