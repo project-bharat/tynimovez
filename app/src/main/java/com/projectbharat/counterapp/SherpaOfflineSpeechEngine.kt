@@ -9,6 +9,8 @@ import com.k2fsa.sherpa.onnx.OfflineModelConfig
 import com.k2fsa.sherpa.onnx.OfflineNemoEncDecCtcModelConfig
 import com.k2fsa.sherpa.onnx.OfflineRecognizer
 import com.k2fsa.sherpa.onnx.OfflineRecognizerConfig
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.math.sqrt
 
@@ -53,12 +55,28 @@ class SherpaOfflineSpeechEngine(
     private val main = Handler(Looper.getMainLooper())
     private val running = AtomicBoolean(false)
     @Volatile private var recorder: AudioRecord? = null
-    private var worker: Thread? = null
+    @Volatile private var worker: Thread? = null
+    @Volatile private var startupFailure: Throwable? = null
+    private val startup = CountDownLatch(1)
 
-    fun start() {
-        if (running.compareAndSet(false, true)) {
-            worker = Thread({ captureAndDecode() }, "BilanOfflineVoice").apply { start() }
+    /**
+     * Start is not considered successful until recognizer initialization and microphone
+     * acquisition have completed. This prevents the UI from remaining in "Starting"
+     * forever when native initialization or AudioRecord setup fails.
+     */
+    fun start(timeoutMs: Long = 25_000L) {
+        check(running.compareAndSet(false, true)) { "Voice engine is already running" }
+        startupFailure = null
+        worker = Thread({ captureAndDecode() }, "BilanOfflineVoice").apply {
+            isDaemon = true
+            start()
         }
+        if (!startup.await(timeoutMs, TimeUnit.MILLISECONDS)) {
+            stop()
+            throw IllegalStateException("Voice engine startup timed out. Tap voice count to retry.")
+        }
+        startupFailure?.let { throw IllegalStateException(it.message ?: "Voice engine failed to start", it) }
+        if (!running.get()) throw IllegalStateException("Voice engine stopped during startup. Tap voice count to retry.")
     }
 
     /**
@@ -117,6 +135,7 @@ class SherpaOfflineSpeechEngine(
                 throw IllegalStateException("Microphone busy — another app or call is using it", error)
             }
             check(audio.recordingState == AudioRecord.RECORDSTATE_RECORDING) { "Microphone unavailable" }
+            startup.countDown()
             postStatus(if (english) "Listening offline — say a number from one to ten" else "ऑफलाइन ऐकत आहे — एक ते दहा म्हणा")
 
             val pcm = ShortArray(FRAME_SAMPLES)
@@ -134,7 +153,11 @@ class SherpaOfflineSpeechEngine(
 
             while (running.get()) {
                 val read = audio.read(pcm, 0, pcm.size, AudioRecord.READ_BLOCKING)
-                if (read <= 0) continue
+                if (read < 0) {
+                    if (running.get()) throw IllegalStateException("Microphone read failed ($read)")
+                    break
+                }
+                if (read == 0) continue
                 var energy = 0.0
                 val frame = FloatArray(read)
                 for (i in 0 until read) {
@@ -180,6 +203,8 @@ class SherpaOfflineSpeechEngine(
                 }
             }
         } catch (error: Throwable) {
+            startupFailure = error
+            startup.countDown()
             val detail = error.message.orEmpty()
             failureMessage = when {
                 detail.contains("busy", true) || detail.contains("startRecording", true) ->
@@ -191,6 +216,7 @@ class SherpaOfflineSpeechEngine(
                 else -> "Offline voice error: " + (detail.ifBlank { "could not start" })
             }
         } finally {
+            startup.countDown()
             val endedUnexpectedly = running.getAndSet(false)
             try { audio?.stop() } catch (_: Exception) {}
             try { audio?.release() } catch (_: Exception) {}
