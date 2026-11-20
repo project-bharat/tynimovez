@@ -146,7 +146,7 @@ class MainActivity : ComponentActivity() {
     }
 
     override fun onStop() {
-        // Foreground step and Japa services continue when the UI is backgrounded.
+        // Baby movement tracking continues while the UI is backgrounded.
         super.onStop()
     }
 
@@ -442,7 +442,7 @@ fun CounterApp(repo: CounterRepository) {
                     showPermissionIntro = false
                 },
                 title = { Text(if (english) "Set up device access" else "फोन परवानग्या सेट करा") },
-                text = { Text(if (english) "Steps: activity, location & notifications. Japa: microphone for Auto Count." else "पावले: हालचाल, लोकेशन व सूचना. जप: Auto Count वर मायक्रोफोन.") },
+                text = { Text(if (english) "Baby movement tracking uses notifications and microphone access for voice counting." else "बाळाच्या हालचालींची मोजणी व आवाजाद्वारे मोजणीसाठी सूचना आणि मायक्रोफोन परवानगी आवश्यक आहे.") },
                 confirmButton = {
                     TextButton(onClick = { firstRunPermissionLauncher.launch(firstRunPermissions) }) {
                         Text(if (english) "Continue" else "पुढे")
@@ -465,18 +465,18 @@ fun CounterApp(repo: CounterRepository) {
                         Text(if (english) "DAILY COUNTER" else "दैनिक मोजणी", style = MaterialTheme.typography.titleLarge, color = ink, fontWeight = FontWeight.Bold)
                         Spacer(Modifier.height(14.dp))
                         categories.forEach { cat ->
-                            val glyph = when (cat.kind) { "BABY" -> Icons.Default.PregnantWoman; "MANTRA" -> Icons.Default.SelfImprovement; else -> Icons.Default.Add }
+                            val glyph = Icons.Default.PregnantWoman
                             NavigationDrawerItem(
                                 icon = { Icon(glyph, null) },
-                                label = { Text(if (cat.kind == "MANTRA") { if (english) "Chants" else "जप / मंत्र" } else if (english) cat.titleEn else cat.titleMr) },
+                                label = { Text(if (english) "Baby Movements" else "बाळाची हालचाल") },
                                 selected = selected?.id == cat.id && !remindersScreen,
                                 onClick = { selectedId = cat.id; remindersScreen = false; weekly = false; monthlyHistory = false; categoryScreen = false; backupScreen = false; scope.launch { drawerState.close() } }
                             )
                         }
-                        NavigationDrawerItem(icon = { Icon(Icons.Default.Add, null) }, label = { Text(if (english) "Add counter" else "नवीन मोजणी") }, selected = false, onClick = { addDialog = true; scope.launch { drawerState.close() } })
+                        
                         Divider(Modifier.padding(vertical = 8.dp))
                         NavigationDrawerItem(icon = { Icon(Icons.Default.NotificationsActive, null) }, label = { Text(if (english) "Reminders" else "स्मरणपत्रे") }, selected = remindersScreen, onClick = { remindersScreen = true; weekly = false; monthlyHistory = false; categoryScreen = false; backupScreen = false; scope.launch { drawerState.close() } })
-                        NavigationDrawerItem(icon = { Icon(Icons.Default.Edit, null) }, label = { Text(if (english) "Manage counters" else "मोजणी व्यवस्थापन") }, selected = categoryScreen, onClick = { categoryScreen = true; backupScreen = false; remindersScreen = false; weekly = false; monthlyHistory = false; scope.launch { drawerState.close() } })
+                        
                         NavigationDrawerItem(icon = { Icon(Icons.Default.Save, null) }, label = { Text(if (english) "Backup & export" else "बॅकअप व निर्यात") }, selected = backupScreen, onClick = { backupScreen = true; categoryScreen = false; remindersScreen = false; weekly = false; monthlyHistory = false; scope.launch { drawerState.close() } })
                         NavigationDrawerItem(icon = { Icon(Icons.Default.Download, null) }, label = { Text((if (english) "Offline voice models" else "ऑफलाइन आवाज मॉडेल") + " · " + voiceModelSummary) }, selected = voiceModelsDialog, onClick = { voiceModelsDialog = true; scope.launch { drawerState.close() } })
                         NavigationDrawerItem(icon = { Icon(Icons.Default.BarChart, null) }, label = { Text(if (english) "Weekly report" else "साप्ताहिक अहवाल") }, selected = weekly, onClick = { weekly = true; remindersScreen = false; monthlyHistory = false; categoryScreen = false; backupScreen = false; scope.launch { drawerState.close() } })
