@@ -19,11 +19,6 @@
         android:theme="@style/Theme.CounterApp"
         android:supportsRtl="true">
         <service android:name="androidx.work.impl.foreground.SystemForegroundService" android:foregroundServiceType="dataSync" tools:node="merge" />
-        <service
-            android:name=".ChantRecognitionService"
-            android:enabled="true"
-            android:exported="false"
-            android:foregroundServiceType="microphone" />
         <receiver android:name=".DailyReminderReceiver" android:exported="false" />
         <receiver android:name=".QuickActionReceiver" android:enabled="true" android:exported="false" />
         <receiver android:name=".CounterHomeWidget" android:enabled="true" android:exported="true" android:label="@string/app_name">
