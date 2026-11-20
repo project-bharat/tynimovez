@@ -28,8 +28,6 @@ class SpeechModelDownloadWorker(context: Context, params: WorkerParameters) : Co
         val title = when (key) {
             "sherpa_en" -> "English baby-movement voice model"
             "sherpa_mr" -> "Marathi baby-movement voice model"
-            "vosk_en" -> "English Japa voice model"
-            "vosk_hi" -> "Hindi/Marathi Japa voice model"
             else -> return Result.failure()
         }
         return try {
@@ -42,14 +40,6 @@ class SpeechModelDownloadWorker(context: Context, params: WorkerParameters) : Co
                     manager.download(english) { done, total ->
                         val percent = if (total > 0L) ((done * 100L) / total).toInt().coerceIn(0, 100) else 0
                         val message = if (total > 0L) "Downloading · $percent%" else "Downloading model…"
-                        publishProgress(title, message, percent)
-                    }
-                }
-                "vosk_en", "vosk_hi" -> withContext(Dispatchers.IO) {
-                    val language = if (key == "vosk_hi") "hi" else "en"
-                    VoskOfflineModelInstaller.install(applicationContext, language) { message ->
-                        taskContext.ensureActive()
-                        val percent = Regex("(\\d+)%").find(message)?.groupValues?.get(1)?.toIntOrNull() ?: 0
                         publishProgress(title, message, percent)
                     }
                 }
@@ -102,7 +92,7 @@ class SpeechModelDownloadWorker(context: Context, params: WorkerParameters) : Co
 
 /** Queues each voice model once, one after another, so large model downloads do not compete. */
 object SpeechModelDownloadScheduler {
-    private val modelKeys = listOf("sherpa_mr", "sherpa_en", "vosk_hi", "vosk_en")
+    private val modelKeys = listOf("sherpa_mr", "sherpa_en")
 
     fun enqueueAll(context: Context, wifiOnly: Boolean) {
         val constraints = Constraints.Builder()
