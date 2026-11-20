@@ -205,10 +205,6 @@ class CounterViewModel(private val repo: CounterRepository) : ViewModel() {
     suspend fun updateBabySessionRecord(session: BabySession) = repo.updateBabySessionRecord(session)
     suspend fun resumeSession(sessionId: Long) = repo.resumeBabySession(sessionId)
     suspend fun completeSession(sessionId: Long) = repo.completeExpiredBabySession(sessionId)
-    suspend fun add(id: Long, strength: String?, duration: Long? = null) = repo.add(id, strength, duration)
-    suspend fun addCount(id: Long, amount: Int) = repo.addCount(id, amount)
-    suspend fun undo(id: Long) = repo.undo(id)
-    suspend fun reset(id: Long) = repo.reset(id)
     class Factory(private val repo: CounterRepository) : ViewModelProvider.Factory {
         @Suppress("UNCHECKED_CAST")
         override fun <T : ViewModel> create(modelClass: Class<T>): T = CounterViewModel(repo) as T
@@ -286,7 +282,6 @@ fun CounterApp(repo: CounterRepository) {
     var backupMessage by remember { mutableStateOf<String?>(null) }
     var pendingRestoreUri by remember { mutableStateOf<android.net.Uri?>(null) }
     val drawerState = rememberDrawerState(DrawerValue.Closed)
-    var resetDialog by remember { mutableStateOf(false) }
     var finishDialog by remember { mutableStateOf(false) }
     var finalStrength by remember { mutableStateOf("MEDIUM") }
     var historyDate by remember { mutableStateOf(LocalDate.now()) }
@@ -607,9 +602,6 @@ fun CounterApp(repo: CounterRepository) {
             dismissButton = { TextButton(onClick = { pendingRestoreUri = null }) { Text(if (english) "Cancel" else "रद्द") } }
         )
     }
-    if (resetDialog) AlertDialog(onDismissRequest = { resetDialog = false }, title = { Text(if (english) "Reset today's count?" else "आजची मोजणी रीसेट करायची?") },
-        confirmButton = { TextButton(onClick = { scope.launch { selected?.let { vm.reset(it.id) } }; resetDialog = false }) { Text(if (english) "Reset" else "रीसेट") } },
-        dismissButton = { TextButton(onClick = { resetDialog = false }) { Text(if (english) "Cancel" else "रद्द") } })
     if (finishDialog && activeSession != null) {
         AlertDialog(
             onDismissRequest = { finishDialog = false },
