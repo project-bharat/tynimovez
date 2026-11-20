@@ -908,6 +908,7 @@ private fun BabyMovementScreen(
     }
 }
 
+@Composable
 private fun ReminderSettingsScreen(english: Boolean, ink: Color) {
     val context = LocalContext.current
     val activity = context as? ComponentActivity
