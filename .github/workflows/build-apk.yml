@@ -20,8 +20,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env:
-      ANDROID_HOME: /usr/local/android/sdk
-      ANDROID_SDK_ROOT: /usr/local/android/sdk
+      ANDROID_HOME: ${{ runner.temp }}/android-sdk
+      ANDROID_SDK_ROOT: ${{ runner.temp }}/android-sdk
     steps:
       - name: Checkout source
         uses: actions/checkout@v4
