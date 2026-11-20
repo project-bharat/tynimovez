@@ -19,18 +19,6 @@ class CounterRepository(private val dao: CounterDao) {
     suspend fun restoreCategory(id: Long) = dao.enableCategory(id)
     fun today(categoryId: Long): Flow<Int> = dao.todayCount(categoryId, LocalDate.now().toString())
     fun logsForDay(categoryId: Long, date: LocalDate): Flow<List<CounterLog>> = dao.logsForDay(categoryId, date.toString())
-    fun mantraLogsForDay(categoryId: Long, date: LocalDate): Flow<List<CounterLog>> = dao.mantraLogsForDay(categoryId, date.toString())
-    fun allMantraLogs(categoryId: Long): Flow<List<CounterLog>> = dao.allMantraLogs(categoryId)
-    fun mantraToday(categoryId: Long, mantra: String): Flow<Int> = dao.mantraTodayCount(categoryId, LocalDate.now().toString(), "MANTRA:" + mantra)
-    fun mantraAllTime(categoryId: Long, mantra: String): Flow<Int> = dao.mantraAllTimeCount(categoryId, "MANTRA:" + mantra)
-    fun mantraWeek(categoryId: Long, mantra: String): Flow<List<DayTotal>> {
-        val today = LocalDate.now()
-        return dao.mantraWeeklyTotals(categoryId, today.minusDays(6).toString(), today.toString(), "MANTRA:" + mantra)
-    }
-    suspend fun addMantraCount(categoryId: Long, mantra: String) {
-        require(mantra.isNotBlank()) { "Choose a mantra first" }
-        dao.incrementMantraDaily(categoryId, LocalDate.now().toString(), mantra.trim(), 1)
-    }
     fun logsForRange(categoryId: Long, from: LocalDate, to: LocalDate): Flow<List<CounterLog>> = dao.logsForRange(categoryId, from.toString(), to.toString())
     suspend fun updateLog(log: CounterLog) {
         require(log.count > 0) { "Count must be positive" }
