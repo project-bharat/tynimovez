@@ -81,9 +81,8 @@ fun CounterHistoryScreen(
                         Row(Modifier.fillMaxWidth().padding(start = 13.dp, end = 5.dp, top = 9.dp, bottom = 9.dp), verticalAlignment = Alignment.CenterVertically) {
                             Column(Modifier.weight(1f).clickable { editing = log }.padding(vertical = 3.dp)) {
                                 val time = Instant.ofEpochMilli(log.timestamp).atZone(ZoneId.systemDefault()).format(DateTimeFormatter.ofPattern("hh:mm:ss a"))
-                                val mantraEntry = log.note?.takeIf { it.startsWith("MANTRA:") }
-                                Text(if (mantraEntry != null) mantraEntry.removePrefix("MANTRA:") + " · " + log.count else time + "  ·  +" + log.count, color = ink, fontWeight = FontWeight.SemiBold)
-                                val details = listOfNotNull(log.strength?.takeIf { it.isNotBlank() }, log.note?.takeIf { it.isNotBlank() && !it.startsWith("MANTRA:") }).joinToString(" · ")
+                                Text(time + "  ·  +" + log.count, color = ink, fontWeight = FontWeight.SemiBold)
+                                val details = listOfNotNull(log.strength?.takeIf { it.isNotBlank() }, log.note?.takeIf { it.isNotBlank() }).joinToString(" · ")
                                 if (details.isNotBlank()) Text(details, color = ink.copy(alpha = .62f), style = MaterialTheme.typography.bodySmall)
                                 if (log.sessionId != null) Text(if (english) "Baby movement session" else "बाळाच्या हालचालींचे सत्र", color = ink.copy(alpha = .48f), style = MaterialTheme.typography.labelSmall)
                             }
