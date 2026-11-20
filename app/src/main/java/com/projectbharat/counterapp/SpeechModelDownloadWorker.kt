@@ -43,6 +43,7 @@ class SpeechModelDownloadWorker(context: Context, params: WorkerParameters) : Co
                         publishProgress(title, message, percent)
                     }
                 }
+                else -> return Result.failure()
             }
             setProgress(workDataOf("complete" to true))
             Result.success()
