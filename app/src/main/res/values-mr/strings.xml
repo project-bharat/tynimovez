@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">दैनिक मोजणी</string>
+    <string name="app_name">बाळाच्या हालचालींची मोजणी</string>
     <string name="count">मोजणी</string>
     <string name="undo">मागे घ्या</string>
     <string name="reset">रीसेट</string>
