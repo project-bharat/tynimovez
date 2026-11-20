@@ -201,7 +201,14 @@ fun BabyVoiceCountControl(
             // LaunchedEffect is cancelled on language changes. Cleanup must outlive that
             // cancellation so the previous AudioRecord/model is fully stopped before restart.
             try {
-                withContext(NonCancellable + Dispatchers.IO) { engine?.stop() }
+                withContext(NonCancellable + Dispatchers.IO) {
+                    runCatching { engine?.stop() }.onFailure { error ->
+                        if (runGeneration.get() == runId) {
+                            val message = error.message ?: "Voice engine shutdown failed"
+                            stateCallback.value(false, message, null, null)
+                        }
+                    }
+                }
             } finally {
                 // Never strand the mutex if native shutdown throws; subsequent toggles
                 // must be able to attempt a fresh engine instance.
