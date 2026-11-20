@@ -11,9 +11,8 @@ object SeedData {
         val dao = CounterDatabase.get(context).dao()
         CoroutineScope(Dispatchers.IO).launch {
             if (dao.categories().first().isEmpty()) {
+                // Baby movement is the only counter seeded in this dedicated app.
                 dao.addCategory(CounterCategory(titleMr = "बाळाची हालचाल", titleEn = "Baby Movements", kind = "BABY"))
-                dao.addCategory(CounterCategory(titleMr = "जप", titleEn = "Chants", kind = "MANTRA"))
-                dao.addCategory(CounterCategory(titleMr = "पावले", titleEn = "Walking Steps", kind = "STEPS", goal = 6000))
             }
         }
     }
