@@ -57,7 +57,7 @@ class SherpaOfflineSpeechEngine(
     @Volatile private var recorder: AudioRecord? = null
     @Volatile private var worker: Thread? = null
     @Volatile private var startupFailure: Throwable? = null
-    private val startup = CountDownLatch(1)
+    @Volatile private var startup = CountDownLatch(1)
 
     /**
      * Start is not considered successful until recognizer initialization and microphone
@@ -67,11 +67,13 @@ class SherpaOfflineSpeechEngine(
     fun start(timeoutMs: Long = 25_000L) {
         check(running.compareAndSet(false, true)) { "Voice engine is already running" }
         startupFailure = null
-        worker = Thread({ captureAndDecode() }, "BilanOfflineVoice").apply {
+        val startupSignal = CountDownLatch(1)
+        startup = startupSignal
+        worker = Thread({ captureAndDecode(startupSignal) }, "BilanOfflineVoice").apply {
             isDaemon = true
             start()
         }
-        if (!startup.await(timeoutMs, TimeUnit.MILLISECONDS)) {
+        if (!startupSignal.await(timeoutMs, TimeUnit.MILLISECONDS)) {
             runCatching { stop() }
             throw IllegalStateException("Voice engine startup timed out. Tap voice count to retry.")
         }
@@ -110,7 +112,7 @@ class SherpaOfflineSpeechEngine(
         worker = null
     }
 
-    private fun captureAndDecode() {
+    private fun captureAndDecode(startupSignal: CountDownLatch) {
         var recognizer: OfflineRecognizer? = null
         var audio: AudioRecord? = null
         var failureMessage: String? = null
@@ -136,7 +138,7 @@ class SherpaOfflineSpeechEngine(
                 throw IllegalStateException("Microphone busy — another app or call is using it", error)
             }
             check(audio.recordingState == AudioRecord.RECORDSTATE_RECORDING) { "Microphone unavailable" }
-            startup.countDown()
+            startupSignal.countDown()
             postStatus(if (english) "Listening offline — say a number from one to ten" else "ऑफलाइन ऐकत आहे — एक ते दहा म्हणा")
 
             val pcm = ShortArray(FRAME_SAMPLES)
@@ -205,7 +207,7 @@ class SherpaOfflineSpeechEngine(
             }
         } catch (error: Throwable) {
             startupFailure = error
-            startup.countDown()
+            startupSignal.countDown()
             val detail = error.message.orEmpty()
             failureMessage = when {
                 detail.contains("busy", true) || detail.contains("startRecording", true) ->
@@ -217,7 +219,7 @@ class SherpaOfflineSpeechEngine(
                 else -> "Offline voice error: " + (detail.ifBlank { "could not start" })
             }
         } finally {
-            startup.countDown()
+            startupSignal.countDown()
             val endedUnexpectedly = running.getAndSet(false)
             try { audio?.stop() } catch (_: Exception) {}
             try { audio?.release() } catch (_: Exception) {}
