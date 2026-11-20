@@ -188,7 +188,6 @@ class CounterViewModel(private val repo: CounterRepository) : ViewModel() {
     suspend fun updateLog(log: CounterLog) = repo.updateLog(log)
     suspend fun deleteLog(id: Long) = repo.deleteLog(id)
     fun week(id: Long) = repo.week(id)
-    fun average(id: Long) = repo.average(id)
     fun averageBabyTimeToTen(id: Long) = repo.averageBabyTimeToTen(id)
     fun sessions(id: Long, date: String) = repo.babySessionsForDay(id, date)
     fun monthSessions(id: Long, month: LocalDate) = repo.babySessionsForMonth(id, month)
@@ -343,7 +342,7 @@ fun CounterApp(repo: CounterRepository) {
 
     val countFlow = remember(selected?.id) { selected?.let { vm.count(it.id) } ?: flowOf(0) }
     val weekFlow = remember(selected?.id) { selected?.let { vm.week(it.id) } ?: flowOf(emptyList()) }
-    val averageFlow = remember(selected?.id) { selected?.let { if (it.kind == "BABY") vm.averageBabyTimeToTen(it.id) else vm.average(it.id) } ?: flowOf(null) }
+    val averageFlow = remember(selected?.id) { selected?.let { vm.averageBabyTimeToTen(it.id) } ?: flowOf(null) }
     val sessionFlow = remember(selected?.id, historyDate) { selected?.let { vm.sessions(it.id, historyDate.toString()) } ?: flowOf(emptyList()) }
     val historyLogsFlow = remember(selected?.id, historyDate) { selected?.let { vm.logsForDay(it.id, historyDate) } ?: flowOf(emptyList()) }
     val latestFlow = remember(selected?.id) { selected?.let { vm.latestSession(it.id) } ?: flowOf(null) }
