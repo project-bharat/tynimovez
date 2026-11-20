@@ -68,6 +68,7 @@ import java.util.concurrent.atomic.AtomicLong
 
 // A process-wide lock prevents overlapping microphone/model engines when the active session changes.
 private val voiceEngineMutex = Mutex()
+private val voiceRunGeneration = AtomicLong(0L)
 
 private fun microphoneBusy(context: android.content.Context): Boolean {
     val audio = context.getSystemService(AudioManager::class.java) ?: return false
@@ -93,7 +94,7 @@ fun BabyVoiceCountControl(
     val callback = rememberUpdatedState(onCount)
     val stateCallback = rememberUpdatedState(onRecognitionState)
     val mainHandler = remember { Handler(Looper.getMainLooper()) }
-    val runGeneration = remember(activeSessionId) { AtomicLong(0L) }
+    val runGeneration = voiceRunGeneration
     val engineMutex = voiceEngineMutex
     var listening by remember(activeSessionId) { mutableStateOf(false) }
     var permissionRequestPending by remember(activeSessionId) { mutableStateOf(false) }
