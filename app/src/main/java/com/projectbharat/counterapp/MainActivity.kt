@@ -404,7 +404,7 @@ fun CounterApp(repo: CounterRepository) {
             drawerContent = {
                 ModalDrawerSheet {
                     Column(Modifier.fillMaxWidth().padding(18.dp)) {
-                        Text(if (english) "DAILY COUNTER" else "दैनिक मोजणी", style = MaterialTheme.typography.titleLarge, color = ink, fontWeight = FontWeight.Bold)
+                        Text(if (english) "BABY MOVEMENT COUNTER" else "बाळाच्या हालचाली", style = MaterialTheme.typography.titleLarge, color = ink, fontWeight = FontWeight.Bold)
                         Spacer(Modifier.height(14.dp))
                         categories.forEach { cat ->
                             val glyph = Icons.Default.PregnantWoman
@@ -467,7 +467,7 @@ fun CounterApp(repo: CounterRepository) {
                             contentScale = ContentScale.Fit
                         )
                         Text(
-                            if (english) "Daily Counter" else "दैनिक मोजणी",
+                            if (english) "Baby Movement Counter" else "बाळाची हालचाल",
                             color = Color(0xFFF3EEE3),
                             style = MaterialTheme.typography.labelSmall,
                             fontWeight = FontWeight.Medium
