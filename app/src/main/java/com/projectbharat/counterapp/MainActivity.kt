@@ -807,7 +807,8 @@ private fun BabyMovementScreen(
                             }
                         } else Text(if (english) "OFF" else "बंद", color = Color.White.copy(alpha = .8f), style = MaterialTheme.typography.labelSmall)
                     }
-                    Text(if (english) "This detects movement of your phone—not your baby. Phone movement can create false detections. Review and add only movements you actually felt." else "हा फोनची हालचाल ओळखतो, बाळाची नाही. फोन हलल्यामुळे चुकीच्या नोंदी होऊ शकतात. प्रत्यक्ष जाणवलेल्या हालचालीच जोडा.", modifier = Modifier.fillMaxWidth().padding(top = 8.dp), color = ink.copy(alpha = .75f), style = MaterialTheme.typography.bodySmall)\n                    Row(Modifier.fillMaxWidth().padding(vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Text(if (english) "This detects movement of your phone—not your baby. Phone movement can create false detections. Review and add only movements you actually felt." else "हा फोनची हालचाल ओळखतो, बाळाची नाही. फोन हलल्यामुळे चुकीच्या नोंदी होऊ शकतात. प्रत्यक्ष जाणवलेल्या हालचालीच जोडा.", modifier = Modifier.fillMaxWidth().padding(top = 8.dp), color = ink.copy(alpha = .75f), style = MaterialTheme.typography.bodySmall)
+                    Row(Modifier.fillMaxWidth().padding(vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                         Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
                             Text(if (english) "Detected" else "ओळखले", color = ink.copy(alpha = .65f), style = MaterialTheme.typography.labelSmall, textAlign = TextAlign.Center)
                             Text(pending.toString(), color = ink, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.ExtraBold, textAlign = TextAlign.Center)
