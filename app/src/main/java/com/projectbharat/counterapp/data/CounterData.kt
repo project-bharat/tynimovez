@@ -331,7 +331,7 @@ abstract class CounterDatabase : RoomDatabase() {
         }
         private val MIGRATION_5_6 = object : Migration(5, 6) {
             override fun migrate(db: SupportSQLiteDatabase) {
-                // Daily mantra totals reuse one log row per mantra and date.
+                // Preserve historical per-counter totals in the legacy database.
                 db.execSQL("CREATE INDEX IF NOT EXISTS index_counter_logs_categoryId_date_note ON counter_logs(categoryId, date, note)")
             }
         }
