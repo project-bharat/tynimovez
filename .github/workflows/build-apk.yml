@@ -1,4 +1,4 @@
-name: Android Debug APK
+name: Baby Movement Counter — Debug APK
 
 on:
   push:
@@ -20,8 +20,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env:
-      ANDROID_HOME: /usr/local/lib/android/sdk
-      ANDROID_SDK_ROOT: /usr/local/lib/android/sdk
+      ANDROID_HOME: /usr/local/android/sdk
+      ANDROID_SDK_ROOT: /usr/local/android/sdk
     steps:
       - name: Checkout source
         uses: actions/checkout@v4
@@ -65,10 +65,26 @@ jobs:
           test -s app/build/outputs/apk/debug/app-debug.apk
           ls -lh app/build/outputs/apk/debug/app-debug.apk
 
-      - name: Upload APK artifact
+      - name: Name APK and create ZIP with build number
+        env:
+          BUILD_NUMBER: ${{ github.run_number }}
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+          APK_NAME="Baby-Movement-Counter-Debug-APK-${BUILD_NUMBER}.apk"
+          ZIP_NAME="Baby-Movement-Counter-Debug-APK-${BUILD_NUMBER}.zip"
+          cp app/build/outputs/apk/debug/app-debug.apk "dist/${APK_NAME}"
+          (cd dist && zip -9 "${ZIP_NAME}" "${APK_NAME}")
+          test -s "dist/${APK_NAME}"
+          test -s "dist/${ZIP_NAME}"
+          ls -lh dist/
+
+      - name: Upload named APK and ZIP artifact
         uses: actions/upload-artifact@v4
         with:
-          name: counterapp-debug-apk
-          path: app/build/outputs/apk/debug/app-debug.apk
+          name: Baby Movement Counter — Debug APK (Build ${{ github.run_number }})
+          path: |
+            dist/*.apk
+            dist/*.zip
           if-no-files-found: error
           retention-days: 14
