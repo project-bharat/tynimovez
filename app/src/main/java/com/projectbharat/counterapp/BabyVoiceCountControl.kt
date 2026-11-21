@@ -1,10 +1,10 @@
 package com.projectbharat.counterapp
 
 import android.Manifest
-import android.media.AudioManager
 import android.content.pm.PackageManager
 import android.os.Handler
 import android.os.Looper
+import android.os.SystemClock
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedContent
@@ -61,23 +61,22 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.NonCancellable
-import kotlinx.coroutines.awaitCancellation
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.runInterruptible
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import java.util.concurrent.atomic.AtomicLong
 
 // A process-wide lock prevents overlapping microphone/model engines when the active session changes.
 private val voiceEngineMutex = Mutex()
 private val voiceRunGeneration = AtomicLong(0L)
 
-private fun microphoneBusy(context: android.content.Context): Boolean {
-    val audio = context.getSystemService(AudioManager::class.java) ?: return false
-    if (audio.mode == AudioManager.MODE_IN_CALL) return true
-    if (android.os.Build.VERSION.SDK_INT >= 24) {
-        return runCatching { audio.activeRecordingConfigurations.isNotEmpty() }.getOrDefault(false)
-    }
-    return false
-}
+private val microphoneRetryDelays = longArrayOf(500, 1_000, 2_000, 4_000, 8_000)
 
 @Composable
 fun BabyVoiceCountControl(
@@ -97,6 +96,7 @@ fun BabyVoiceCountControl(
     val runGeneration = voiceRunGeneration
     val engineMutex = voiceEngineMutex
     var listening by remember(activeSessionId) { mutableStateOf(false) }
+    var startRequest by remember(activeSessionId) { mutableStateOf(0L) }
     var permissionRequestPending by remember(activeSessionId) { mutableStateOf(false) }
     LaunchedEffect(activeSessionId, autoStart) {
         if (autoStart) {
@@ -108,40 +108,33 @@ fun BabyVoiceCountControl(
     val permissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
         permissionRequestPending = false
         if (granted) {
-            if (microphoneBusy(context)) {
-                stateCallback.value(false, if (english) "Microphone busy — a call or another app is using it" else "मायक्रोफोन व्यस्त — कॉल किंवा दुसरे अॅप वापरत आहे", "", null)
-                listening = false
-            } else {
-                stateCallback.value(false, if (english) "Starting voice recognition…" else "आवाज ओळख सुरू होत आहे…", "", 0)
-                listening = true
-            }
+            listening = true
         } else {
             listening = false
             stateCallback.value(false, if (english) "Microphone permission denied" else "मायक्रोफोन परवानगी नाकारली", "", null)
         }
     }
 
-    DisposableEffect(lifecycleOwner) {
+    val currentEnglish by rememberUpdatedState(english)
+    DisposableEffect(lifecycleOwner, activeSessionId) {
         val observer = LifecycleEventObserver { _, event ->
             // Android's runtime permission sheet can emit ON_STOP. Do not cancel the
             // pending start while that system dialog is visible.
-            if (event == Lifecycle.Event.ON_STOP && !permissionRequestPending) listening = false
+            if (event == Lifecycle.Event.ON_STOP && listening && !permissionRequestPending) {
+                runGeneration.incrementAndGet()
+                listening = false
+                stateCallback.value(false, if (currentEnglish) "Voice count is off" else "आवाज मोजणी बंद", "", null)
+            }
         }
         lifecycleOwner.lifecycle.addObserver(observer)
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
 
-    LaunchedEffect(listening, activeSessionId, english) {
-        // Every language/start-stop transition invalidates callbacks from the previous engine.
+    LaunchedEffect(listening, startRequest, activeSessionId, english) {
+        if (!listening) return@LaunchedEffect
         val runId = runGeneration.incrementAndGet()
-        if (!listening) {
-            stateCallback.value(false, if (english) "Voice count is off" else "आवाज मोजणी बंद", "", null)
-            return@LaunchedEffect
-        }
-
-        // Publish the opening state before waiting for cleanup, model download, or
-        // microphone acquisition. This makes the recognition panel appear immediately,
-        // including during rapid start/stop and language changes.
+        val runContext = currentCoroutineContext()
+        fun isCurrentRun() = runContext.isActive && runGeneration.get() == runId
         stateCallback.value(false, if (english) "Starting voice recognition…" else "आवाज ओळख सुरू होत आहे…", "", 0)
         if (ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
             listening = false
@@ -150,74 +143,72 @@ fun BabyVoiceCountControl(
             return@LaunchedEffect
         }
 
-        // Serialize engines: the next language cannot claim the microphone until the old
-        // engine has released AudioRecord and its native recognizer.
-        engineMutex.lock()
-        var engine: SherpaOfflineSpeechEngine? = null
         try {
-            // Check for external microphone use only after the prior engine has fully
-            // stopped and released AudioRecord. This avoids false "busy" on rapid restart.
-            if (microphoneBusy(context)) {
-                stateCallback.value(false, if (english) "Microphone busy — a call or another app is using it" else "मायक्रोफोन व्यस्त — कॉल किंवा दुसरे अॅप वापरत आहे", "", null)
-                listening = false
-                return@LaunchedEffect
-            }
-            stateCallback.value(false, if (english) "Checking offline model…" else "ऑफलाइन मॉडेल तपासत आहे…", "", 0)
-            val files = withContext(Dispatchers.IO) {
-                manager.installedFiles(english) ?: manager.download(english) { done, total ->
-                    val percent = if (total > 0) ((done * 100) / total).toInt().coerceIn(0, 100) else 0
-                    mainHandler.post {
-                        if (runGeneration.get() == runId) stateCallback.value(false,
-                            if (english) "Downloading offline model… $percent%" else "ऑफलाइन मॉडेल डाउनलोड होत आहे… $percent%",
-                            "", null)
-                    }
-                }
-            }
-            check(files.language == if (english) "en" else "mr") { "The downloaded speech model does not match the selected app language" }
-            stateCallback.value(false, if (english) "Initializing voice engine…" else "आवाज इंजिन सुरू करत आहे…", "", 0)
-            engine = SherpaOfflineSpeechEngine(
-                modelFiles = files,
-                english = english,
-                onTranscript = { phrase, detectedCount ->
-                    if (runGeneration.get() == runId) stateCallback.value(true, if (english) "Listening offline…" else "ऑफलाइन ऐकत आहे…", phrase, detectedCount)
-                },
-                onCount = { amount -> if (runGeneration.get() == runId) callback.value(amount) },
-                onStatus = { status -> if (runGeneration.get() == runId) stateCallback.value(status.contains("Listening", true) || status.contains("ऐकत आहे", true), status, null, null) },
-                onStopped = { error ->
-                    if (runGeneration.get() == runId) {
-                        stateCallback.value(false, error ?: if (english) "Voice count stopped" else "आवाज मोजणी थांबली", null, null)
-                        listening = false
-                    }
-                }
-            )
-            // start() now waits for actual native initialization and mic acquisition,
-            // or reports a bounded timeout/error instead of leaving the UI stuck.
-            withContext(Dispatchers.IO) { engine.start() }
-            awaitCancellation()
-        } catch (error: kotlinx.coroutines.CancellationException) {
-            throw error
-        } catch (error: Throwable) {
-            val detail=error.message.orEmpty()
-            val message=if(detail.contains("busy",true)) (if(english) "Microphone busy — a call or another app is using it" else "मायक्रोफोन व्यस्त — कॉल किंवा दुसरे अॅप वापरत आहे") else if(detail.contains("microphone unavailable",true)) (if(english) "Microphone unavailable" else "मायक्रोफोन उपलब्ध नाही") else "Offline voice setup failed: " + (detail.ifBlank { "try again" })
-            stateCallback.value(false, message, null, null)
-            listening = false
-        } finally {
-            // LaunchedEffect is cancelled on language changes. Cleanup must outlive that
-            // cancellation so the previous AudioRecord/model is fully stopped before restart.
-            try {
-                withContext(NonCancellable + Dispatchers.IO) {
-                    runCatching { engine?.stop() }.onFailure { error ->
-                        if (runGeneration.get() == runId) {
-                            val message = error.message ?: "Voice engine shutdown failed"
-                            stateCallback.value(false, message, null, null)
+            engineMutex.withLock {
+                stateCallback.value(false, if (english) "Checking offline model…" else "ऑफलाइन मॉडेल तपासत आहे…", "", 0)
+                val files = withContext(Dispatchers.IO) {
+                    manager.installedFiles(english) ?: manager.download(english) { done, total ->
+                        val percent = if (total > 0) ((done * 100) / total).toInt().coerceIn(0, 100) else 0
+                        mainHandler.post {
+                            if (isCurrentRun()) stateCallback.value(false,
+                                if (english) "Downloading offline model… $percent%" else "ऑफलाइन मॉडेल डाउनलोड होत आहे… $percent%",
+                                "", null)
                         }
                     }
                 }
-            } finally {
-                // Never strand the mutex if native shutdown throws; subsequent toggles
-                // must be able to attempt a fresh engine instance.
-                if (engineMutex.isLocked) engineMutex.unlock()
+                check(files.language == if (english) "en" else "mr") { "The downloaded speech model does not match the selected app language" }
+                stateCallback.value(false, if (english) "Initializing voice engine…" else "आवाज इंजिन सुरू करत आहे…", "", 0)
+
+                var retries = 0
+                while (true) {
+                    val stopped = CompletableDeferred<Throwable>()
+                    val engine = SherpaOfflineSpeechEngine(
+                        context = context,
+                        modelFiles = files,
+                        english = english,
+                        onTranscript = { phrase, detectedCount ->
+                            if (isCurrentRun()) stateCallback.value(true, if (english) "Listening offline…" else "ऑफलाइन ऐकत आहे…", phrase, detectedCount)
+                        },
+                        onCount = { amount -> if (isCurrentRun()) callback.value(amount) },
+                        onStatus = { status -> if (isCurrentRun()) stateCallback.value(status.contains("Listening", true) || status.contains("ऐकत आहे", true), status, null, null) },
+                        onStopped = { stopped.complete(it) }
+                    )
+                    var startedAt: Long? = null
+                    try {
+                        runInterruptible(Dispatchers.IO) { engine.start() }
+                        startedAt = SystemClock.elapsedRealtime()
+                        throw stopped.await()
+                    } catch (error: MicrophoneUnavailable) {
+                        val start = startedAt
+                        if (start != null && SystemClock.elapsedRealtime() - start >= 30_000) retries = 0
+                        if (retries == microphoneRetryDelays.size) throw error
+                        if (isCurrentRun()) {
+                            stateCallback.value(false,
+                                if (english) "Reconnecting microphone…" else "मायक्रोफोन पुन्हा जोडत आहे…",
+                                "", 0)
+                        }
+                    } finally {
+                        // The worker retains microphone ownership if this bounded wait expires.
+                        withContext(NonCancellable + Dispatchers.IO) { engine.stop() }
+                    }
+                    delay(microphoneRetryDelays[retries++])
+                }
             }
+        } catch (error: CancellationException) {
+            throw error
+        } catch (error: Exception) {
+            if (isCurrentRun()) {
+                val message = when (error) {
+                    is SecurityException -> if (english) "Microphone permission required" else "मायक्रोफोन परवानगी आवश्यक"
+                    is MicrophoneUnavailable -> if (english) "Microphone unavailable. Tap Voice count to retry." else "मायक्रोफोन उपलब्ध नाही. पुन्हा आवाज मोजा दाबा."
+                    else -> if (english) "Offline voice failed. Tap Voice count to retry." else "ऑफलाइन आवाज ओळख अयशस्वी. पुन्हा आवाज मोजा दाबा."
+                }
+                android.util.Log.w("BabyVoiceControl", "Voice counting stopped", error)
+                stateCallback.value(false, message, null, null)
+                listening = false
+            }
+        } finally {
+            runGeneration.compareAndSet(runId, runId + 1)
         }
     }
 
@@ -234,6 +225,7 @@ fun BabyVoiceCountControl(
             } else {
                 stateCallback.value(true, if (english) "Starting voice recognition…" else "आवाज ओळख सुरू होत आहे…", "", 0)
                 if (ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) {
+                    startRequest++
                     listening = true
                 } else {
                     stateCallback.value(true, if (english) "Microphone permission needed" else "मायक्रोफोन परवानगी आवश्यक", "", 0)
@@ -257,11 +249,11 @@ fun BabyVoiceCountControl(
 fun BabyVoiceRecognitionPanel(listening: Boolean, english: Boolean, status: String, transcript: String, detectedCount: Int) {
     val pulse = rememberInfiniteTransition(label = "babyVoicePulse")
     val scale by pulse.animateFloat(1f, 1.15f, infiniteRepeatable(tween(650), RepeatMode.Reverse), label = "babyVoiceMic")
-    val loading = status.contains("Starting", true) || status.contains("Checking", true) || status.contains("Preparing", true) || status.contains("Loading", true) || status.contains("Downloading", true) ||
+    val loading = status.contains("Reconnecting", true) || status.contains("पुन्हा जोडत", true) || status.contains("Starting", true) || status.contains("Checking", true) || status.contains("Preparing", true) || status.contains("Loading", true) || status.contains("Downloading", true) ||
         status.contains("तपास", true) || status.contains("डाउनलोड", true) || status.contains("लोड होत", true)
     val shortStatus = when {
         status.contains("busy", true) -> if (english) "Microphone busy" else "मायक्रोफोन व्यस्त"
-        status.contains("unavailable", true) -> if (english) "Microphone unavailable" else "मायक्रोफोन उपलब्ध नाही"
+        status.equals("Microphone unavailable", true) -> if (english) "Microphone unavailable" else "मायक्रोफोन उपलब्ध नाही"
         status.contains("Listening offline", true) -> if (english) "Listening" else "ऐकत आहे"
         status.contains("ऑफलाइन ऐकत") -> "ऐकत आहे"
         else -> status
@@ -300,7 +292,7 @@ fun BabyVoiceRecognitionPanel(listening: Boolean, english: Boolean, status: Stri
                         shortStatus.ifBlank { if (listening) (if (english) "Listening" else "ऐकत आहे") else (if (english) "Voice count is off" else "आवाज मोजणी बंद") },
                         style = MaterialTheme.typography.labelSmall,
                         color = if (listening && !loading) Color(0xFF16A34A) else MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 1
+                        maxLines = 2
                     )
                 }
             }
