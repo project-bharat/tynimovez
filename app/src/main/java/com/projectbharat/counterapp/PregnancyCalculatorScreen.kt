@@ -140,42 +140,45 @@ internal fun PregnancyCalculatorScreen(english: Boolean) {
                         }
                     }
                     if (editing || valid == null) {
-                    Box {
-                        OutlinedButton(onClick = { showMethods = true }, modifier = Modifier.fillMaxWidth()) { Text(method.label(language)) }
-                        DropdownMenu(expanded = showMethods, onDismissRequest = { showMethods = false }) {
-                            DatingMethod.entries.forEach { option ->
-                                DropdownMenuItem(text = { Text(option.label(language)) }, onClick = {
-                                    method = option
-                                    prefs.edit().putString("method", option.name).apply()
-                                    showMethods = false
-                                })
+                        if (valid == null) Text(
+                            text("Pregnancy dates", "गर्भावस्था की तारीखें", "गर्भावस्थेच्या तारखा"),
+                            style = MaterialTheme.typography.titleMedium)
+                        Box {
+                            OutlinedButton(onClick = { showMethods = true }, modifier = Modifier.fillMaxWidth()) { Text(method.label(language)) }
+                            DropdownMenu(expanded = showMethods, onDismissRequest = { showMethods = false }) {
+                                DatingMethod.entries.forEach { option ->
+                                    DropdownMenuItem(text = { Text(option.label(language)) }, onClick = {
+                                        method = option
+                                        prefs.edit().putString("method", option.name).apply()
+                                        showMethods = false
+                                    })
+                                }
                             }
                         }
-                    }
-                    Button(onClick = {
-                        val initial = inputDate ?: today
-                        DatePickerDialog(context, { _, year, month, day ->
-                            val date = LocalDate.of(year, month + 1, day)
-                            inputDate = date
-                            prefs.edit().putString("date_${method.name}", date.toString()).apply()
-                        }, initial.year, initial.monthValue - 1, initial.dayOfMonth).apply {
-                            if (method != DatingMethod.DUE_DATE) datePicker.maxDate = System.currentTimeMillis()
-                        }.show()
-                    }, modifier = Modifier.fillMaxWidth()) { Text(inputDate?.format(format) ?: text("Choose date", "तारीख चुनें", "तारीख निवडा")) }
-                    if (method == DatingMethod.LMP) {
-                        OutlinedTextField(value = cycle, onValueChange = { value ->
-                            if (value.length <= 2 && value.all { it in '0'..'9' }) {
-                                cycle = value
-                                prefs.edit().putString("cycle", value).apply()
-                            }
-                        }, label = { Text(text("Cycle length (days)", "मासिक चक्र (दिन)", "पाळीचे चक्र (दिवस)")) },
-                            isError = cycleLength == null,
-                            supportingText = {
-                                if (cycleLength == null) Text(text("Enter 15–60 days.", "15–60 दिन दर्ज करें।", "१५–६० दिवस प्रविष्ट करा."))
-                            },
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                            singleLine = true, modifier = Modifier.fillMaxWidth())
-                    }
+                        Button(onClick = {
+                            val initial = inputDate ?: today
+                            DatePickerDialog(context, { _, year, month, day ->
+                                val date = LocalDate.of(year, month + 1, day)
+                                inputDate = date
+                                prefs.edit().putString("date_${method.name}", date.toString()).apply()
+                            }, initial.year, initial.monthValue - 1, initial.dayOfMonth).apply {
+                                if (method != DatingMethod.DUE_DATE) datePicker.maxDate = System.currentTimeMillis()
+                            }.show()
+                        }, modifier = Modifier.fillMaxWidth()) { Text(inputDate?.format(format) ?: text("Choose date", "तारीख चुनें", "तारीख निवडा")) }
+                        if (method == DatingMethod.LMP) {
+                            OutlinedTextField(value = cycle, onValueChange = { value ->
+                                if (value.length <= 2 && value.all { it in '0'..'9' }) {
+                                    cycle = value
+                                    prefs.edit().putString("cycle", value).apply()
+                                }
+                            }, label = { Text(text("Cycle length (days)", "मासिक चक्र (दिन)", "पाळीचे चक्र (दिवस)")) },
+                                isError = cycleLength == null,
+                                supportingText = {
+                                    if (cycleLength == null) Text(text("Enter 15–60 days.", "15–60 दिन दर्ज करें।", "१५–६० दिवस प्रविष्ट करा."))
+                                },
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                singleLine = true, modifier = Modifier.fillMaxWidth())
+                        }
                     }
                     if (timeline != null && valid == null) Text(text(
                         "Check the date. The estimated pregnancy start is in the future.",
