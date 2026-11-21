@@ -55,6 +55,7 @@ preferences("pregnancy_dates", {"method": "LMP", "date_LMP": str(datetime.date.t
 adb("shell", "am", "start", "-n", f"{package}/.MainActivity")
 tap("Start session")
 tap("Add movement")
+find("1")
 capture("Movements")
 tap("Timeline")
 find("Pregnancy timeline")

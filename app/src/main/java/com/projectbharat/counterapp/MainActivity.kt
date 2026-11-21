@@ -203,10 +203,7 @@ class CounterViewModel(private val repo: CounterRepository) : ViewModel() {
     }
 }
 
-private val Navy = Color(0xFF102E55)
-private val Gold = Color(0xFFE7A33C)
-private val Cream = Color(0xFFF5F0E6)
-private val SoftBlue = Color(0xFFDCE9F7)
+private val Charcoal = Color(0xFF272827)
 private val zone = ZoneId.systemDefault()
 private val dateFormat = DateTimeFormatter.ofPattern("dd MMM yyyy")
 
@@ -452,7 +449,7 @@ fun CounterApp(repo: CounterRepository) {
             }
         }
     }
-    if (finishDialog && activeSession != null) {
+    if (finishDialog && activeSession != null) MaterialTheme(colorScheme = scheme) {
         AlertDialog(
             onDismissRequest = { finishDialog = false },
             title = { Text(if (english) "Rate movement strength" else "बाळाच्या हालचालींची ताकद नोंदवा") },
@@ -531,8 +528,8 @@ private fun BabyMovementScreen(
                     contentPadding = PaddingValues(horizontal = 10.dp, vertical = 5.dp),
                     shape = RoundedCornerShape(12.dp),
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = if (autoDetect) Color(0xFF26734D) else MaterialTheme.colorScheme.surfaceVariant,
-                        contentColor = if (autoDetect) Color.White else ink
+                        containerColor = if (autoDetect) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant,
+                        contentColor = if (autoDetect) MaterialTheme.colorScheme.onPrimary else ink
                     )
                 ) {
                     Icon(Icons.Default.DirectionsWalk, contentDescription = null, modifier = Modifier.size(17.dp))
@@ -573,25 +570,25 @@ private fun BabyMovementScreen(
         } else {
             Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(26.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
                 Column(Modifier.fillMaxWidth().padding(22.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                    Icon(Icons.Default.PregnantWoman, null, tint = Color(0xFFC65F68), modifier = Modifier.size(42.dp))
+                    Icon(Icons.Default.PregnantWoman, null, tint = ink, modifier = Modifier.size(42.dp))
                     Text(if (english) "Baby movement" else "बाळाची हालचाल", color = ink, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
                     if (latestSession != null && latestSession.timeToTenMs != null) {
-                        Surface(Modifier.fillMaxWidth().padding(top = 14.dp), shape = RoundedCornerShape(16.dp), color = Color(0xFFE8F4EC)) {
+                        Surface(Modifier.fillMaxWidth().padding(top = 14.dp), shape = RoundedCornerShape(16.dp), color = MaterialTheme.colorScheme.surfaceVariant) {
                             Column(Modifier.padding(14.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                                Text(if (english) "10 MOVEMENTS COMPLETED" else "१० हालचाली पूर्ण", color = Color(0xFF246B48), style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
-                                Text("%.1f".format((latestSession.timeToTenMs ?: 0L) / 60000.0) + (if (english) " min" else " मिनिटे"), color = Color(0xFF246B48), style = MaterialTheme.typography.displaySmall, fontWeight = FontWeight.ExtraBold)
-                                Text(if (english) "Time taken to feel 10 movements" else "१० हालचाली जाणवण्यासाठी लागलेला वेळ", color = Color(0xFF246B48), style = MaterialTheme.typography.bodySmall)
+                                Text(if (english) "10 MOVEMENTS COMPLETED" else "१० हालचाली पूर्ण", color = ink, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
+                                Text("%.1f".format((latestSession.timeToTenMs ?: 0L) / 60000.0) + (if (english) " min" else " मिनिटे"), color = ink, style = MaterialTheme.typography.displaySmall, fontWeight = FontWeight.ExtraBold)
+                                Text(if (english) "Time taken to feel 10 movements" else "१० हालचाली जाणवण्यासाठी लागलेला वेळ", color = ink, style = MaterialTheme.typography.bodySmall)
                             }
                         }
                     }
                     if (resumableSession != null) {
                         Spacer(Modifier.height(28.dp))
-                        Button(onClick = { onResume(resumableSession.id) }, modifier = Modifier.height(46.dp)) {
+                        Button(onClick = { onResume(resumableSession.id) }, modifier = Modifier.fillMaxWidth().heightIn(min = 50.dp)) {
                             Icon(Icons.Default.PlayArrow, null); Spacer(Modifier.width(7.dp)); Text(if (english) "Resume session" else "सत्र पुन्हा सुरू करा")
                         }
                     } else if (lockedSession == null) {
                         Spacer(Modifier.height(12.dp))
-                        Button(onClick = onStart, modifier = Modifier.height(46.dp)) {
+                        Button(onClick = onStart, modifier = Modifier.fillMaxWidth().heightIn(min = 50.dp)) {
                             Icon(Icons.Default.PlayArrow, null); Spacer(Modifier.width(7.dp)); Text(if (english) "Start session" else "सत्र सुरू करा")
                         }
                     }
@@ -601,7 +598,7 @@ private fun BabyMovementScreen(
         if (detections.isNotEmpty() || autoDetect) {
             Card(Modifier.fillMaxWidth().padding(top = 10.dp), shape = RoundedCornerShape(16.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
                 Column(Modifier.fillMaxWidth().padding(10.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                    Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).background(Navy).padding(horizontal = 12.dp, vertical = 9.dp),
+                    Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).background(Charcoal).padding(horizontal = 12.dp, vertical = 9.dp),
                         verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
                         Text(if (english) "PHONE MOTION" else "फोनची हालचाल", color = Color.White, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
                         if (autoDetect) {
@@ -668,9 +665,9 @@ private fun BabyMovementScreen(
                             Column(Modifier.weight(1f)) {
                                 Text(periodLabel(session.dayPeriod, english) + " · " + sessionTime(session.startedAt), color = ink, fontWeight = FontWeight.Bold)
                                 val duration = ((session.endedAt ?: minOf(session.startedAt + CounterRepository.TWO_HOURS_MS, System.currentTimeMillis())) - session.startedAt).coerceAtLeast(0) / 60000
-                                if (session.timeToTenMs != null) Text((if (english) "10 in " else "१० साठी ") + "%.1f min".format(session.timeToTenMs / 60000.0), color = Color(0xFF238451), style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
+                                if (session.timeToTenMs != null) Text((if (english) "10 in " else "१० साठी ") + "%.1f min".format(session.timeToTenMs / 60000.0), color = ink, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
                             }
-                            Text(session.movementCount.toString(), color = Gold, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.ExtraBold)
+                            Text(session.movementCount.toString(), color = ink, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.ExtraBold)
                         }
                     }
                 }
@@ -691,7 +688,7 @@ private fun BabyMovementScreen(
         Card(Modifier.fillMaxWidth().padding(top = 8.dp, bottom = 8.dp), shape = RoundedCornerShape(16.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = .65f))) {
             Column(Modifier.padding(13.dp)) {
                 Row(
-                    Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).background(Navy).clickable { guidanceExpanded = !guidanceExpanded }.padding(horizontal = 12.dp, vertical = 11.dp),
+                    Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).background(Charcoal).clickable { guidanceExpanded = !guidanceExpanded }.padding(horizontal = 12.dp, vertical = 11.dp),
                     verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween
                 ) {
                     Text(if (english) "MOVEMENT GUIDANCE" else "हालचालींबाबत सूचना", color = Color.White, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
@@ -700,7 +697,7 @@ private fun BabyMovementScreen(
                 Text(
                     if (english) "If movements become less frequent or feel different from your baby's usual pattern, contact your maternity-care professional promptly. Do not wait for the timer."
                     else "हालचाली नेहमीपेक्षा कमी किंवा वेगळ्या वाटल्यास वेळ संपण्याची वाट न पाहता त्वरित डॉक्टरांशी संपर्क साधा.",
-                    color = Color(0xFF9A5B36), style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(top = 6.dp)
+                    color = ink, style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(top = 6.dp)
                 )
                 if (guidanceExpanded) {
                     Text(
@@ -734,11 +731,11 @@ fun WeeklyChart(days: List<DayTotal>, modifier: Modifier = Modifier) {
     Row(modifier, horizontalArrangement=Arrangement.spacedBy(6.dp), verticalAlignment=Alignment.Bottom) {
         days.forEach { day ->
             Column(Modifier.weight(1f),horizontalAlignment=Alignment.CenterHorizontally,verticalArrangement=Arrangement.Bottom) {
-                Text(day.total.toString(),color=Navy,style=MaterialTheme.typography.labelSmall,fontWeight=FontWeight.Bold)
+                Text(day.total.toString(),color=MaterialTheme.colorScheme.onSurface,style=MaterialTheme.typography.labelSmall,fontWeight=FontWeight.Bold)
                 Spacer(Modifier.height(5.dp))
-                Box(Modifier.fillMaxWidth(.72f).weight(1f,false).height((145f*day.total/maxValue).coerceAtLeast(if(day.total>0) 8f else 3f).dp).clip(RoundedCornerShape(topStart=8.dp,topEnd=8.dp)).background(if(day.total==maxValue) Gold else Color(0xFF9BB6D3)))
+                Box(Modifier.fillMaxWidth(.72f).weight(1f,false).height((145f*day.total/maxValue).coerceAtLeast(if(day.total>0) 8f else 3f).dp).clip(RoundedCornerShape(topStart=8.dp,topEnd=8.dp)).background(if(day.total==maxValue) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline))
                 Spacer(Modifier.height(7.dp))
-                Text(day.date.takeLast(2),color=Navy.copy(alpha=.65f),style=MaterialTheme.typography.labelSmall)
+                Text(day.date.takeLast(2),color=MaterialTheme.colorScheme.onSurface.copy(alpha=.65f),style=MaterialTheme.typography.labelSmall)
             }
         }
     }
@@ -758,6 +755,7 @@ private fun MonthlyHistoryScreen(
     val context = LocalContext.current
     val totals = sessions.groupBy { it.date }.mapValues { entry -> entry.value.sumOf { it.movementCount } }
     val daysInMonth = month.lengthOfMonth()
+    var expandedSession by rememberSaveable { mutableStateOf<Long?>(null) }
     Column(Modifier.fillMaxSize()) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
             TextButton(onClick = onPrevious) { Text("‹") }
@@ -788,15 +786,16 @@ private fun MonthlyHistoryScreen(
                     val endValue = session.endedAt ?: (session.startedAt + CounterRepository.TWO_HOURS_MS)
                     var editDate by remember(session.id) { mutableStateOf(session.date) }
                     var editTime by remember(session.id) { mutableStateOf(Instant.ofEpochMilli(session.startedAt).atZone(zone).toLocalTime().format(DateTimeFormatter.ofPattern("HH:mm"))) }
-                    Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
+                    Card(onClick = { expandedSession = if (expandedSession == session.id) null else session.id }, colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
                         Row(Modifier.fillMaxWidth().padding(10.dp), verticalAlignment = Alignment.CenterVertically) {
                             Column(Modifier.weight(1f)) {
                                 Text("${session.date}  •  ${periodLabel(session.dayPeriod, english)}  •  ${sessionTime(session.startedAt)}", color = ink, fontWeight = FontWeight.Medium)
+                                if (expandedSession == session.id) Text((if (english) "Session duration · " else "सत्र कालावधी · ") + ((minOf(endValue, System.currentTimeMillis()) - session.startedAt).coerceAtLeast(0L) / 60000) + " min", color = ink)
                                 session.strength?.let { Text(strengthLabel(it, english), color = ink.copy(alpha = .65f), style = MaterialTheme.typography.bodySmall) }
                                 session.timeToTenMs?.let { Text((if (english) "Time to 10: " else "१० हालचालींसाठी वेळ: ") + "%.1f".format(it / 60000.0) + (if (english) " min" else " मिनिटे"), color = ink.copy(alpha = .65f), style = MaterialTheme.typography.bodySmall) }
                             }
                             Column(horizontalAlignment = Alignment.End) {
-                                Text(session.movementCount.toString(), color = Gold, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                                Text(session.movementCount.toString(), color = ink, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
                                 IconButton(onClick = { editCount = session.movementCount.toString(); editDate = session.date; editTime = Instant.ofEpochMilli(session.startedAt).atZone(zone).toLocalTime().format(DateTimeFormatter.ofPattern("HH:mm")); editSession = true }) { Icon(Icons.Default.Edit, contentDescription = if (english) "Edit session" else "सत्र संपादित करा", tint = ink) }
                             }
                         }
@@ -871,9 +870,9 @@ private fun MonthlyChart(values: List<Int>, modifier: Modifier = Modifier) {
         val width = gap * .62f
         values.forEachIndexed { index, value ->
             val height = (size.height * .88f * value / max).coerceAtLeast(if (value > 0) 2f else 0f)
-            drawRoundRect(Gold, androidx.compose.ui.geometry.Offset(index * gap + gap * .18f, size.height - height), androidx.compose.ui.geometry.Size(width, height), androidx.compose.ui.geometry.CornerRadius(4f))
+            drawRoundRect(Sand, androidx.compose.ui.geometry.Offset(index * gap + gap * .18f, size.height - height), androidx.compose.ui.geometry.Size(width, height), androidx.compose.ui.geometry.CornerRadius(4f))
         }
-        drawLine(Navy.copy(alpha = .25f), androidx.compose.ui.geometry.Offset(0f, size.height), androidx.compose.ui.geometry.Offset(size.width, size.height), strokeWidth = 1.5f)
+        drawLine(Charcoal.copy(alpha = .25f), androidx.compose.ui.geometry.Offset(0f, size.height), androidx.compose.ui.geometry.Offset(size.width, size.height), strokeWidth = 1.5f)
     }
 }
 
