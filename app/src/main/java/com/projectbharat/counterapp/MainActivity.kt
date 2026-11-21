@@ -136,11 +136,6 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    override fun onResume() {
-        super.onResume()
-        QuickActionsNotification.show(this)
-    }
-
     override fun onStop() {
         // Baby movement tracking continues while the UI is backgrounded.
         super.onStop()
@@ -265,7 +260,6 @@ fun CounterApp(repo: CounterRepository) {
     val firstRunPermissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { results ->
         context.getSharedPreferences("app_setup", android.content.Context.MODE_PRIVATE).edit().putBoolean("permission_intro_seen", true).apply()
         showPermissionIntro = false
-        QuickActionsNotification.show(context)
     }
     val firstRunPermissions = if (Build.VERSION.SDK_INT >= 33) arrayOf(Manifest.permission.POST_NOTIFICATIONS) else emptyArray()
     val haptic = LocalHapticFeedback.current
@@ -313,10 +307,12 @@ fun CounterApp(repo: CounterRepository) {
     val activeSession = latestSession?.takeIf { val limit = CounterRepository.TWO_HOURS_MS; it.endedAt == null && clock < it.startedAt + limit }
     val resumableSession = latestSession?.takeIf { val limit = CounterRepository.TWO_HOURS_MS; it.endedAt != null && clock < it.startedAt + limit }
     val lockedSession = latestSession?.takeIf { val limit = CounterRepository.TWO_HOURS_MS; clock < it.startedAt + limit }
-    LaunchedEffect(activeSession?.id, activeSession?.movementCount, english) {
+    LaunchedEffect(activeSession?.id, activeSession?.movementCount, english, showPermissionIntro) {
         if (activeSession != null && selected != null) {
             BabySessionNotification.show(context, activeSession.id, selected.id, activeSession.movementCount, english)
-        } else BabySessionNotification.cancel(context)
+        } else {
+            QuickActionsNotification.showIfIdle(context)
+        }
     }
     LaunchedEffect(activeSession?.id) { if (activeSession == null) autoStartBabyVoice = false }
     val remainingMs = activeSession?.let { val limit = CounterRepository.TWO_HOURS_MS; (it.startedAt + limit - clock).coerceAtLeast(0L) } ?: 0L

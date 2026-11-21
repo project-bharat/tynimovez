@@ -75,7 +75,15 @@ object QuickActionsNotification {
     private const val CHANNEL = "counter_quick_actions"
     private const val NOTIFICATION_ID = 7100
 
-    fun show(context: Context) {
+    suspend fun showIfIdle(context: Context) {
+        val dao = CounterDatabase.get(context).dao()
+        val lockStart = System.currentTimeMillis() - CounterRepository.TWO_HOURS_MS
+        val active = dao.categories().first().any { dao.activeBabySession(it.id, lockStart) != null }
+        if (active) {
+            cancel(context)
+            return
+        }
+        BabySessionNotification.cancel(context)
         if (Build.VERSION.SDK_INT >= 33 &&
             ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) return
         val manager = context.getSystemService(NotificationManager::class.java)
@@ -101,6 +109,10 @@ object QuickActionsNotification {
             .build()
         runCatching { NotificationManagerCompat.from(context).notify(NOTIFICATION_ID, notification) }
     }
+
+    fun cancel(context: Context) {
+        NotificationManagerCompat.from(context).cancel(NOTIFICATION_ID)
+    }
 }
 
 
@@ -109,6 +121,7 @@ object BabySessionNotification {
     const val NOTIFICATION_ID = 7105
 
     fun show(context: Context, sessionId: Long, categoryId: Long, count: Int, english: Boolean) {
+        QuickActionsNotification.cancel(context)
         if (Build.VERSION.SDK_INT >= 33 &&
             ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) return
         val manager = context.getSystemService(NotificationManager::class.java)
