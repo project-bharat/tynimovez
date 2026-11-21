@@ -129,7 +129,7 @@ object BabySessionNotification {
                 .putExtra(CounterQuickActions.EXTRA_COUNTER_KIND, "BABY")
                 .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP),
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
-        val voice = PendingIntent.getActivity(context, 7113,
+        val voice = BabyVoiceService.notificationStart(context, sessionId, english) ?: PendingIntent.getActivity(context, 7113,
             Intent(context, MainActivity::class.java).setAction(MainActivity.ACTION_OPEN_COUNTER)
                 .putExtra(CounterQuickActions.EXTRA_COUNTER_KIND, "BABY")
                 .putExtra("baby_voice", true)
@@ -146,7 +146,7 @@ object BabySessionNotification {
                 actionPending(CounterQuickActions.ACTION_BABY_ADD, 7111))
             .addAction(android.R.drawable.ic_menu_revert, if (english) "Undo" else "मागे",
                 actionPending(CounterQuickActions.ACTION_BABY_UNDO, 7112))
-            .addAction(android.R.drawable.ic_btn_speak_now, if (english) "Voice count" else "आवाज मोजा", voice)
+            .addAction(android.R.drawable.ic_btn_speak_now, if (english) "AI voice" else "AI आवाज", voice)
             .build()
         runCatching { NotificationManagerCompat.from(context).notify(NOTIFICATION_ID, notification) }
     }
@@ -174,7 +174,7 @@ class QuickActionReceiver : BroadcastReceiver() {
                         if (session != null && session.categoryId == categoryId && session.endedAt == null &&
                             System.currentTimeMillis() < session.startedAt + CounterRepository.TWO_HOURS_MS) {
                             val repository = CounterRepository(dao)
-                            if (action == CounterQuickActions.ACTION_BABY_ADD) repository.addBabyMovement(categoryId, sessionId, null)
+                            if (action == CounterQuickActions.ACTION_BABY_ADD) repository.addBabyMovement(sessionId, null)
                             else repository.undoBabyMovement(sessionId)
                             val refreshed = dao.babySession(sessionId)
                             if (refreshed != null && refreshed.endedAt == null &&

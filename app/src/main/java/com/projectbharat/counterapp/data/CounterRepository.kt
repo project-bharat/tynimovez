@@ -79,22 +79,8 @@ class CounterRepository(private val dao: CounterDao) {
         )
     }
 
-    suspend fun addBabyMovement(categoryId: Long, sessionId: Long, strength: String?) {
-        val now = System.currentTimeMillis()
-        val session = dao.babySession(sessionId) ?: return
-        if (session.endedAt != null || now >= session.startedAt + sessionLimit(session)) return
-        dao.addBabyMovementAtomically(
-            CounterLog(
-                date = session.date,
-                timestamp = now,
-                categoryId = categoryId,
-                strength = strength,
-                sessionId = sessionId
-            ),
-            sessionId,
-            now - session.startedAt
-        )
-        // Do not end the session at ten movements; keep recording until two hours.
+    suspend fun addBabyMovement(sessionId: Long, strength: String?) {
+        dao.addBabyMovementsAtomically(sessionId, System.currentTimeMillis(), TWO_HOURS_MS, 1, strength)
     }
 
     suspend fun undoBabyMovement(sessionId: Long) {
