@@ -1,11 +1,9 @@
 package com.projectbharat.counterapp
 
 import android.content.Intent
-import android.app.TimePickerDialog
 import android.os.Build
 import android.Manifest
 import android.content.pm.PackageManager
-import androidx.core.app.ActivityCompat
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Save
@@ -247,6 +245,8 @@ fun CounterApp(repo: CounterRepository) {
     var monthlyHistory by remember { mutableStateOf(false) }
     var historyMonth by remember { mutableStateOf(LocalDate.now().withDayOfMonth(1)) }
     var remindersScreen by remember { mutableStateOf(false) }
+    var pregnancyScreen by remember { mutableStateOf(false) }
+    androidx.activity.compose.BackHandler(enabled = pregnancyScreen) { pregnancyScreen = false }
     var backupScreen by remember { mutableStateOf(false) }
     var voiceModelsDialog by remember { mutableStateOf(false) }
     var backupMessage by remember { mutableStateOf<String?>(null) }
@@ -303,6 +303,7 @@ fun CounterApp(repo: CounterRepository) {
             categories.firstOrNull { it.kind == "BABY" }?.let { baby ->
                 selectedId = baby.id
                 remindersScreen = false
+                pregnancyScreen = false
                 backupScreen = false
                 weekly = false
                 monthlyHistory = false
@@ -386,18 +387,31 @@ fun CounterApp(repo: CounterRepository) {
                             NavigationDrawerItem(
                                 icon = { Icon(glyph, null) },
                                 label = { Text(if (english) "Baby Movements" else "बाळाची हालचाल") },
-                                selected = selected?.id == cat.id && !remindersScreen,
-                                onClick = { selectedId = cat.id; remindersScreen = false; weekly = false; monthlyHistory = false; backupScreen = false; scope.launch { drawerState.close() } }
+                                selected = selected?.id == cat.id && !remindersScreen && !pregnancyScreen,
+                                onClick = { pregnancyScreen = false; selectedId = cat.id; remindersScreen = false; weekly = false; monthlyHistory = false; backupScreen = false; scope.launch { drawerState.close() } }
                             )
                         }
                         
                         Divider(Modifier.padding(vertical = 8.dp))
-                        NavigationDrawerItem(icon = { Icon(Icons.Default.NotificationsActive, null) }, label = { Text(if (english) "Reminders" else "स्मरणपत्रे") }, selected = remindersScreen, onClick = { remindersScreen = true; weekly = false; monthlyHistory = false; backupScreen = false; scope.launch { drawerState.close() } })
+                        NavigationDrawerItem(
+                            icon = { Icon(Icons.Default.PregnantWoman, null) },
+                            label = { Text(if (english) "Pregnancy timeline" else "गर्भावस्थेची कालरेषा") },
+                            selected = pregnancyScreen,
+                            onClick = {
+                                pregnancyScreen = true
+                                remindersScreen = false
+                                backupScreen = false
+                                weekly = false
+                                monthlyHistory = false
+                                scope.launch { drawerState.close() }
+                            }
+                        )
+                        NavigationDrawerItem(icon = { Icon(Icons.Default.NotificationsActive, null) }, label = { Text(if (english) "Reminders" else "स्मरणपत्रे") }, selected = remindersScreen, onClick = { pregnancyScreen = false; remindersScreen = true; weekly = false; monthlyHistory = false; backupScreen = false; scope.launch { drawerState.close() } })
                         
-                        NavigationDrawerItem(icon = { Icon(Icons.Default.Save, null) }, label = { Text(if (english) "Backup & export" else "बॅकअप व निर्यात") }, selected = backupScreen, onClick = { backupScreen = true; remindersScreen = false; weekly = false; monthlyHistory = false; scope.launch { drawerState.close() } })
+                        NavigationDrawerItem(icon = { Icon(Icons.Default.Save, null) }, label = { Text(if (english) "Backup & export" else "बॅकअप व निर्यात") }, selected = backupScreen, onClick = { pregnancyScreen = false; backupScreen = true; remindersScreen = false; weekly = false; monthlyHistory = false; scope.launch { drawerState.close() } })
                         NavigationDrawerItem(icon = { Icon(Icons.Default.Download, null) }, label = { Text(if (english) "AI voice setup" else "AI आवाज सेटअप") }, selected = voiceModelsDialog, onClick = { voiceModelsDialog = true; scope.launch { drawerState.close() } })
-                        NavigationDrawerItem(icon = { Icon(Icons.Default.BarChart, null) }, label = { Text(if (english) "Weekly report" else "साप्ताहिक अहवाल") }, selected = weekly, onClick = { weekly = true; remindersScreen = false; monthlyHistory = false; backupScreen = false; scope.launch { drawerState.close() } })
-                        NavigationDrawerItem(icon = { Icon(Icons.Default.History, null) }, label = { Text(if (english) "History" else "इतिहास") }, selected = monthlyHistory, onClick = { monthlyHistory = true; remindersScreen = false; weekly = false; backupScreen = false; scope.launch { drawerState.close() } })
+                        NavigationDrawerItem(icon = { Icon(Icons.Default.BarChart, null) }, label = { Text(if (english) "Weekly report" else "साप्ताहिक अहवाल") }, selected = weekly, onClick = { pregnancyScreen = false; weekly = true; remindersScreen = false; monthlyHistory = false; backupScreen = false; scope.launch { drawerState.close() } })
+                        NavigationDrawerItem(icon = { Icon(Icons.Default.History, null) }, label = { Text(if (english) "History" else "इतिहास") }, selected = monthlyHistory, onClick = { pregnancyScreen = false; monthlyHistory = true; remindersScreen = false; weekly = false; backupScreen = false; scope.launch { drawerState.close() } })
                         NavigationDrawerItem(
                             icon = { Icon(Icons.Default.Language, null) },
                             label = { Text(if (english) "मराठी" else "English") },
@@ -450,6 +464,7 @@ fun CounterApp(repo: CounterRepository) {
                     }
                     Spacer(Modifier.weight(1f))
                     IconButton(onClick = {
+                        pregnancyScreen = false
                         remindersScreen = true; weekly = false; monthlyHistory = false
                         backupScreen = false
                     }) {
@@ -458,6 +473,7 @@ fun CounterApp(repo: CounterRepository) {
                     IconButton(onClick = {
                         historyDate = LocalDate.now()
                         historyMonth = LocalDate.now().withDayOfMonth(1)
+                        pregnancyScreen = false
                         monthlyHistory = true; remindersScreen = false; weekly = false
                         backupScreen = false
                     }) {
@@ -468,12 +484,13 @@ fun CounterApp(repo: CounterRepository) {
 
                 Column(Modifier.weight(1f)) {
                 Box(Modifier.weight(1f)) {
-                if (backupScreen) {
+                if (pregnancyScreen) {
+                    PregnancyCalculatorScreen(english)
+                } else if (backupScreen) {
                     BackupSettingsScreen(english = english, ink = ink, message = backupMessage,
                         onExportBackup = { jsonExportLauncher.launch("daily-counter-backup.json") },
                         onImportBackup = { jsonImportLauncher.launch(arrayOf("application/json", "text/*")) },
                         onExportCsv = { csvExportLauncher.launch("daily-counter-history.csv") })
-                } else if (remindersScreen) {
                 } else if (remindersScreen) {
                     ReminderSettingsScreen(english = english, ink = ink)
                 } else
@@ -876,56 +893,6 @@ private fun BabyMovementScreen(
             }
         }
         Spacer(Modifier.height(12.dp))
-    }
-}
-
-@Composable
-private fun ReminderSettingsScreen(english: Boolean, ink: Color) {
-    val context = LocalContext.current
-    val activity = context as? ComponentActivity
-    val settings = remember { mutableStateListOf<DailyReminder>().apply { addAll(DailyReminderScheduler.load(context)) } }
-    Column(Modifier.fillMaxSize()) {
-        Text(if (english) "DAILY REMINDERS" else "दैनिक स्मरणपत्रे", color = ink, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-        Text(if (english) "Choose times that fit your routine." else "तुमच्या दिनक्रमानुसार वेळ निवडा.", color = ink.copy(alpha = .65f), style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(top = 4.dp, bottom = 14.dp))
-        LazyColumn(verticalArrangement = Arrangement.spacedBy(9.dp), contentPadding = PaddingValues(bottom = 14.dp)) {
-            items(settings, key = { it.id }) { item ->
-                Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(18.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
-                    Row(Modifier.fillMaxWidth().padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Column(Modifier.weight(1f)) {
-                            Text(if (english) item.titleEn else item.titleMr, color = ink, fontWeight = FontWeight.SemiBold)
-                            Text("%02d:%02d".format(item.hour, item.minute), color = Color(0xFF39865B), style = MaterialTheme.typography.titleMedium,
-                                modifier = Modifier.clickable {
-                                    TimePickerDialog(context, { _, hour, minute ->
-                                        val index = settings.indexOfFirst { it.id == item.id }
-                                        if (index >= 0) {
-                                            settings[index] = settings[index].copy(hour = hour, minute = minute)
-                                            DailyReminderScheduler.saveAndSchedule(context, settings.toList())
-                                        }
-                                    }, item.hour, item.minute, false).show()
-                                })
-                            Text(if (english) "Tap time to change" else "वेळ बदलण्यासाठी टॅप करा", color = ink.copy(alpha = .45f), style = MaterialTheme.typography.labelSmall)
-                        }
-                        Switch(checked = item.enabled, onCheckedChange = { enabled ->
-                            val index = settings.indexOfFirst { it.id == item.id }
-                            if (index >= 0) {
-                                settings[index] = settings[index].copy(enabled = enabled)
-                                DailyReminderScheduler.saveAndSchedule(context, settings.toList())
-                                if (enabled && Build.VERSION.SDK_INT >= 33 && ActivityCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
-                                    activity?.let { ActivityCompat.requestPermissions(it, arrayOf(Manifest.permission.POST_NOTIFICATIONS), 4101) }
-                                }
-                            }
-                        })
-                    }
-                }
-            }
-        }
-        Surface(shape = RoundedCornerShape(16.dp), color = Color(0xFFFFF3DF)) {
-            Text(
-                if (english) "Baby movement reminders are optional routine prompts, not medical advice. Follow your maternity professional's guidance. If movements become reduced or change from your baby's usual pattern, contact your maternity unit promptly; do not wait for a reminder."
-                else "बाळाच्या हालचालींची स्मरणपत्रे ही केवळ ऐच्छिक आठवण आहे, वैद्यकीय सल्ला नाही. डॉक्टरांच्या सूचनांचे पालन करा. हालचाली कमी झाल्या किंवा नेहमीच्या पद्धतीत बदल जाणवला तर स्मरणपत्राची वाट न पाहता त्वरित प्रसूती-सेवा केंद्राशी संपर्क साधा.",
-                color = Color(0xFF76531F), style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(13.dp)
-            )
-        }
     }
 }
 
