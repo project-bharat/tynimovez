@@ -80,8 +80,6 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.projectbharat.counterapp.data.*
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import java.time.Instant
@@ -249,8 +247,6 @@ fun CounterApp(repo: CounterRepository) {
     androidx.activity.compose.BackHandler(enabled = pregnancyScreen) { pregnancyScreen = false }
     var backupScreen by remember { mutableStateOf(false) }
     var voiceModelsDialog by remember { mutableStateOf(false) }
-    var backupMessage by remember { mutableStateOf<String?>(null) }
-    var pendingRestoreUri by remember { mutableStateOf<android.net.Uri?>(null) }
     val drawerState = rememberDrawerState(DrawerValue.Closed)
     var finishDialog by remember { mutableStateOf(false) }
     var finalStrength by remember { mutableStateOf("MEDIUM") }
@@ -272,25 +268,6 @@ fun CounterApp(repo: CounterRepository) {
         QuickActionsNotification.show(context)
     }
     val firstRunPermissions = if (Build.VERSION.SDK_INT >= 33) arrayOf(Manifest.permission.POST_NOTIFICATIONS) else emptyArray()
-    val jsonExportLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
-        if (uri != null) scope.launch {
-            backupMessage = null
-            runCatching { withContext(Dispatchers.IO) { CounterBackupManager.exportJson(context, uri) } }
-                .onSuccess { backupMessage = if (english) "Backup saved successfully." else "बॅकअप यशस्वीपणे जतन झाला." }
-                .onFailure { backupMessage = (if (english) "Backup failed: " else "बॅकअप अयशस्वी: ") + (it.message ?: "Unknown error") }
-        }
-    }
-    val csvExportLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("text/csv")) { uri ->
-        if (uri != null) scope.launch {
-            backupMessage = null
-            runCatching { withContext(Dispatchers.IO) { CounterBackupManager.exportCsv(context, uri) } }
-                .onSuccess { backupMessage = if (english) "CSV exported successfully." else "CSV निर्यात यशस्वी." }
-                .onFailure { backupMessage = (if (english) "CSV export failed: " else "CSV निर्यात अयशस्वी: ") + (it.message ?: "Unknown error") }
-        }
-    }
-    val jsonImportLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
-        pendingRestoreUri = uri
-    }
     val haptic = LocalHapticFeedback.current
     val clickTone = remember { ToneGenerator(android.media.AudioManager.STREAM_SYSTEM, 35) }
     DisposableEffect(clickTone) { onDispose { clickTone.release() } }
@@ -487,10 +464,7 @@ fun CounterApp(repo: CounterRepository) {
                 if (pregnancyScreen) {
                     PregnancyCalculatorScreen(english)
                 } else if (backupScreen) {
-                    BackupSettingsScreen(english = english, ink = ink, message = backupMessage,
-                        onExportBackup = { jsonExportLauncher.launch("daily-counter-backup.json") },
-                        onImportBackup = { jsonImportLauncher.launch(arrayOf("application/json", "text/*")) },
-                        onExportCsv = { csvExportLauncher.launch("daily-counter-history.csv") })
+                    BackupAndSyncScreen(english)
                 } else if (remindersScreen) {
                     ReminderSettingsScreen(english = english, ink = ink)
                 } else
@@ -570,25 +544,6 @@ fun CounterApp(repo: CounterRepository) {
         }
     }
 
-    }
-    pendingRestoreUri?.let { uri ->
-        AlertDialog(
-            onDismissRequest = { pendingRestoreUri = null },
-            title = { Text(if (english) "Replace app data?" else "सध्याचा डेटा बदलायचा?") },
-            text = { Text(if (english) "Restoring replaces all counters, history and baby movement sessions on this device. Export a backup first if you need to keep the current data." else "बॅकअप पुनर्संचयित केल्याने या उपकरणावरील सर्व मोजण्या, इतिहास आणि बाळाच्या हालचालींची सत्रे बदलली जातील. सध्याचा डेटा हवा असल्यास आधी बॅकअप घ्या.") },
-            confirmButton = {
-                TextButton(onClick = {
-                    pendingRestoreUri = null
-                    scope.launch {
-                        backupMessage = null
-                        runCatching { withContext(Dispatchers.IO) { CounterBackupManager.restoreJson(context, uri) } }
-                            .onSuccess { backupMessage = if (english) "Backup restored successfully." else "बॅकअप यशस्वीपणे पुनर्संचयित झाला." }
-                            .onFailure { backupMessage = (if (english) "Restore failed: " else "पुनर्संचयित करणे अयशस्वी: ") + (it.message ?: "Unknown error") }
-                    }
-                }) { Text(if (english) "Replace data" else "डेटा बदला") }
-            },
-            dismissButton = { TextButton(onClick = { pendingRestoreUri = null }) { Text(if (english) "Cancel" else "रद्द") } }
-        )
     }
     if (finishDialog && activeSession != null) {
         AlertDialog(

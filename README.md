@@ -33,3 +33,36 @@ APK output: `app/build/outputs/apk/debug/app-debug.apk`.
 4. Extract the ZIP to get `app-debug.apk`.
 
 Pushes to `main` and `baby-movement-only` run the build workflow.
+
+## Backup and Google Drive setup
+
+Manual device backup uses Android's file picker and works without Google setup.
+It covers the five Room tables and imports the previous version-1 counter JSON.
+The pregnancy timeline and reminder preferences are managed separately.
+
+To enable Pro Google Drive backup in a Play test build:
+
+1. Enable the Google Drive API in Google Cloud and configure an OAuth consent
+   screen for `https://www.googleapis.com/auth/drive.appdata`. Add test users
+   if the consent screen is in testing.
+2. Create an Android OAuth client for `com.projectbharat.counterapp` and the
+   signing certificate SHA-1 used by the installed build. Register the debug
+   SHA-1 for local testing and the Play App Signing SHA-1 for Play installs.
+3. Create a Web OAuth client in the same project. Paste its public client ID
+   into `default_web_client_id` in `app/src/main/res/values/strings.xml`.
+   Keep the OAuth client secret out of the Android project.
+4. Activate a Google Play subscription with an eligible base plan. Match its
+   product ID to `pro_subscription_product_id` in the same resource file.
+   Install from a Play test track and add the account as a license tester.
+5. Open **Backup & sync**, subscribe with the test account, connect Google
+   Drive, and select **Sync now** or enable the 12-hour **Auto-sync** job.
+
+Drive backups are whole-database snapshots. Automatic restore requires a known
+updated Drive revision and an unchanged local snapshot. A fresh installation
+with an existing cloud backup uses **Restore from cloud** after confirmation.
+Divergent snapshots require an explicit choice; export a local copy before
+restoring. This is snapshot sync and has no per-record merge. Use one active
+writer at a time. The client rechecks the Drive revision before upload and
+sends an HTTP precondition on responses that provide an ETag. The JSON file
+is stored in the Google account's app-specific folder without app-level
+encryption.
