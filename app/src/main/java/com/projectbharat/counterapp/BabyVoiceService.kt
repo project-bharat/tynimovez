@@ -112,13 +112,13 @@ class BabyVoiceService : Service() {
             launch {
                 delay(remaining)
                 CounterRepository(dao).completeExpiredBabySession(id)
-                BabySessionNotification.cancel(this@BabyVoiceService)
+                QuickActionsNotification.showIfIdle(this@BabyVoiceService)
                 stopSelf()
             }
             launch {
                 dao.observeBabySession(id).collect { record ->
                     if (record == null || record.endedAt != null || record.startedAt != session.startedAt) {
-                        BabySessionNotification.cancel(this@BabyVoiceService)
+                        QuickActionsNotification.showIfIdle(this@BabyVoiceService)
                         stopSelf()
                     } else {
                         update { it.copy(total = record.movementCount) }
