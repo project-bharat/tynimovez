@@ -27,14 +27,21 @@ def preferences(name, values):
 
 
 def find(label):
-    for _ in range(8):
-        adb("shell", "uiautomator", "dump", "/sdcard/window.xml")
-        tree = ET.fromstring(adb("shell", "cat", "/sdcard/window.xml"))
+    labels = []
+    for _ in range(12):
+        try:
+            adb("shell", "uiautomator", "dump", "/sdcard/window.xml")
+            tree = ET.fromstring(adb("shell", "cat", "/sdcard/window.xml"))
+        except (subprocess.CalledProcessError, ET.ParseError):
+            time.sleep(1)
+            continue
+        labels = [n.get("text") for n in tree.iter("node") if n.get("text")]
         for node in tree.iter("node"):
             if node.get("text") == label:
                 return list(map(int, re.findall(r"\d+", node.get("bounds"))))
         time.sleep(1)
-    raise RuntimeError(f"Screen missing {label}")
+    print(adb("logcat", "-b", "crash", "-d").decode(), flush=True)
+    raise RuntimeError(f"Screen missing {label}. Visible labels: {labels}")
 
 
 def tap(label):
@@ -52,7 +59,7 @@ preferences("app_preferences", {"english_language": True})
 preferences("app_setup", {"permission_intro_seen": True})
 preferences("speech_model_setup", {"prefetch_connected_network_v2": True})
 preferences("pregnancy_dates", {"method": "LMP", "date_LMP": str(datetime.date.today() - datetime.timedelta(days=192))})
-adb("shell", "am", "start", "-n", f"{package}/.MainActivity")
+adb("shell", "am", "start", "-W", "-n", f"{package}/.MainActivity")
 tap("Start session")
 tap("Add movement")
 find("1")
