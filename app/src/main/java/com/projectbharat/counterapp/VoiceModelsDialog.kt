@@ -12,7 +12,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
 import androidx.work.WorkManager
-import androidx.concurrent.futures.await
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.delay
 
 @Composable
@@ -25,7 +26,9 @@ fun VoiceModelsDialog(english: Boolean, onDismiss: () -> Unit) {
         val work = WorkManager.getInstance(context)
         while (true) {
             ready = manager.isInstalled(false) && manager.isInstalled(true)
-            preparing = work.getWorkInfosForUniqueWork("voice-model-prefetch").await().any { !it.state.isFinished }
+            preparing = withContext(Dispatchers.IO) {
+                work.getWorkInfosForUniqueWork("voice-model-prefetch").get().any { !it.state.isFinished }
+            }
             if (ready) break
             delay(1000)
         }

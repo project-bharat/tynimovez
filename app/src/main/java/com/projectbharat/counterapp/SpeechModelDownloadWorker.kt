@@ -25,21 +25,19 @@ import kotlinx.coroutines.withContext
 class SpeechModelDownloadWorker(context: Context, params: WorkerParameters) : CoroutineWorker(context, params) {
     override suspend fun doWork(): Result {
         val key = inputData.getString(KEY_MODEL) ?: return Result.failure()
-        val title = when (key) {
-            "sherpa_en" -> "English baby-movement voice model"
-            "sherpa_mr" -> "Marathi baby-movement voice model"
-            else -> return Result.failure()
-        }
+        if (key != "sherpa_en" && key != "sherpa_mr") return Result.failure()
+        val english = applicationContext.getSharedPreferences("app_preferences", Context.MODE_PRIVATE)
+            .getBoolean("english_language", false)
+        val title = if (english) "AI voice setup" else "AI आवाज सेटअप"
         return try {
             val taskContext = currentCoroutineContext()
-            setForeground(foregroundInfo(title, "Preparing download…", 0))
+            setForeground(foregroundInfo(title, if (english) "Preparing download…" else "डाउनलोड तयार होत आहे…", 0))
             when (key) {
                 "sherpa_en", "sherpa_mr" -> {
-                    val english = key == "sherpa_en"
                     val manager = OfflineSpeechModelManager(applicationContext)
-                    manager.download(english) { done, total ->
+                    manager.download(key == "sherpa_en") { done, total ->
                         val percent = if (total > 0L) ((done * 100L) / total).toInt().coerceIn(0, 100) else 0
-                        val message = if (total > 0L) "Downloading · $percent%" else "Downloading model…"
+                        val message = if (english) "Downloading · $percent%" else "डाउनलोड · $percent%"
                         publishProgress(title, message, percent)
                     }
                 }
@@ -64,7 +62,7 @@ class SpeechModelDownloadWorker(context: Context, params: WorkerParameters) : Co
     private fun foregroundInfo(title: String, message: String, percent: Int): ForegroundInfo {
         val manager = applicationContext.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         if (Build.VERSION.SDK_INT >= 26) {
-            manager.createNotificationChannel(NotificationChannel(CHANNEL_ID, "Offline voice models", NotificationManager.IMPORTANCE_LOW))
+            manager.createNotificationChannel(NotificationChannel(CHANNEL_ID, "AI voice setup", NotificationManager.IMPORTANCE_LOW))
         }
         val notification = NotificationCompat.Builder(applicationContext, CHANNEL_ID)
             .setSmallIcon(android.R.drawable.stat_sys_download)

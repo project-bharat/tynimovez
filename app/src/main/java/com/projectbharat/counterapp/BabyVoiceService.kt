@@ -1,5 +1,6 @@
 package com.projectbharat.counterapp
 
+import android.Manifest
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
@@ -7,6 +8,7 @@ import android.app.PendingIntent
 import android.app.Service
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.content.pm.ServiceInfo
 import android.os.Build
 import android.os.IBinder
@@ -55,6 +57,7 @@ class BabyVoiceService : Service() {
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         if (intent?.action != ACTION_START) {
+            sessionJob?.cancel()
             stopSelf()
             return START_NOT_STICKY
         }
@@ -109,14 +112,17 @@ class BabyVoiceService : Service() {
             launch {
                 delay(remaining)
                 CounterRepository(dao).completeExpiredBabySession(id)
+                BabySessionNotification.cancel(this@BabyVoiceService)
                 stopSelf()
             }
             launch {
                 dao.observeBabySession(id).collect { record ->
                     if (record == null || record.endedAt != null || record.startedAt != session.startedAt) {
+                        BabySessionNotification.cancel(this@BabyVoiceService)
                         stopSelf()
                     } else {
                         update { it.copy(total = record.movementCount) }
+                        BabySessionNotification.show(this@BabyVoiceService, id, record.categoryId, record.movementCount, english)
                     }
                 }
             }
@@ -232,7 +238,7 @@ class BabyVoiceService : Service() {
     companion object {
         private const val TAG = "BabyVoiceService"
         private const val CHANNEL = "baby_voice_count"
-        private const val NOTIFICATION_ID = 7100
+        private const val NOTIFICATION_ID = 7106
         private const val ACTION_START = "com.projectbharat.counterapp.START_VOICE"
         private const val ACTION_STOP = "com.projectbharat.counterapp.STOP_VOICE"
         private const val EXTRA_SESSION = "session"
@@ -242,10 +248,21 @@ class BabyVoiceService : Service() {
         internal val state = mutableState.asStateFlow()
 
         internal fun start(context: Context, sessionId: Long, english: Boolean) {
-            val intent = Intent(context, BabyVoiceService::class.java).setAction(ACTION_START)
-                .putExtra(EXTRA_SESSION, sessionId).putExtra(EXTRA_ENGLISH, english)
-            ContextCompat.startForegroundService(context, intent)
+            ContextCompat.startForegroundService(context, startIntent(context, sessionId, english))
         }
+
+        internal fun notificationStart(context: Context, sessionId: Long, english: Boolean): PendingIntent? {
+            if (ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) !=
+                PackageManager.PERMISSION_GRANTED) return null
+            val intent = startIntent(context, sessionId, english)
+            val flags = PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+            return if (Build.VERSION.SDK_INT >= 26) PendingIntent.getForegroundService(context, 7114, intent, flags)
+            else PendingIntent.getService(context, 7114, intent, flags)
+        }
+
+        private fun startIntent(context: Context, sessionId: Long, english: Boolean) =
+            Intent(context, BabyVoiceService::class.java).setAction(ACTION_START)
+                .putExtra(EXTRA_SESSION, sessionId).putExtra(EXTRA_ENGLISH, english)
 
         internal fun stop(context: Context) {
             context.stopService(Intent(context, BabyVoiceService::class.java))

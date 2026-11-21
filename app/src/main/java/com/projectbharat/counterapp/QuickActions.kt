@@ -129,7 +129,7 @@ object BabySessionNotification {
                 .putExtra(CounterQuickActions.EXTRA_COUNTER_KIND, "BABY")
                 .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP),
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
-        val voice = PendingIntent.getActivity(context, 7113,
+        val voice = BabyVoiceService.notificationStart(context, sessionId, english) ?: PendingIntent.getActivity(context, 7113,
             Intent(context, MainActivity::class.java).setAction(MainActivity.ACTION_OPEN_COUNTER)
                 .putExtra(CounterQuickActions.EXTRA_COUNTER_KIND, "BABY")
                 .putExtra("baby_voice", true)
