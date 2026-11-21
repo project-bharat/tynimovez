@@ -62,6 +62,8 @@ import androidx.compose.material3.*
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.runtime.SideEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -201,10 +203,7 @@ class CounterViewModel(private val repo: CounterRepository) : ViewModel() {
     }
 }
 
-private val Navy = Color(0xFF102E55)
-private val Gold = Color(0xFFE7A33C)
-private val Cream = Color(0xFFF5F0E6)
-private val SoftBlue = Color(0xFFDCE9F7)
+private val Charcoal = Color(0xFF272827)
 private val zone = ZoneId.systemDefault()
 private val dateFormat = DateTimeFormatter.ofPattern("dd MMM yyyy")
 
@@ -234,15 +233,15 @@ fun CounterApp(repo: CounterRepository) {
         context.getSharedPreferences("app_preferences", android.content.Context.MODE_PRIVATE)
             .edit().putBoolean("english_language", english).apply()
     }
-    var weekly by remember { mutableStateOf(false) }
-    var monthlyHistory by remember { mutableStateOf(false) }
+    var tab by rememberSaveable { mutableStateOf(AppTab.Movements) }
+    var weekly by rememberSaveable { mutableStateOf(false) }
+    var detail by rememberSaveable { mutableStateOf(SettingsDetail.None) }
+    androidx.activity.compose.BackHandler(tab != AppTab.Movements) {
+        if (tab == AppTab.Settings && detail != SettingsDetail.None) detail = SettingsDetail.None
+        else tab = AppTab.Movements
+    }
     var historyMonth by remember { mutableStateOf(LocalDate.now().withDayOfMonth(1)) }
-    var remindersScreen by remember { mutableStateOf(false) }
-    var pregnancyScreen by remember { mutableStateOf(false) }
-    androidx.activity.compose.BackHandler(enabled = pregnancyScreen) { pregnancyScreen = false }
-    var backupScreen by remember { mutableStateOf(false) }
     var voiceModelsDialog by remember { mutableStateOf(false) }
-    val drawerState = rememberDrawerState(DrawerValue.Closed)
     var finishDialog by remember { mutableStateOf(false) }
     var finalStrength by remember { mutableStateOf("MEDIUM") }
     var historyDate by remember { mutableStateOf(LocalDate.now()) }
@@ -273,16 +272,12 @@ fun CounterApp(repo: CounterRepository) {
         if (shortcutKind == "BABY") {
             categories.firstOrNull { it.kind == "BABY" }?.let { baby ->
                 selectedId = baby.id
-                remindersScreen = false
-                pregnancyScreen = false
-                backupScreen = false
-                weekly = false
-                monthlyHistory = false
+                tab = AppTab.Movements
                 if (shortcutQuickStart) scope.launch { vm.startSession(baby.id) }
                 if (shortcutBabyVoice) autoStartBabyVoice = true
             }
         }
-        if (shortcutKind != null) activity?.consumeLaunchCounterKind()
+        if (shortcutKind != null && categories.isNotEmpty()) activity?.consumeLaunchCounterKind()
     }
     val selected = categories.firstOrNull { it.id == selectedId } ?: categories.firstOrNull()
     LaunchedEffect(categories) { if (categories.isNotEmpty() && categories.none { it.id == selectedId }) selectedId = categories.first().id }
@@ -319,13 +314,9 @@ fun CounterApp(repo: CounterRepository) {
     val detectionFlow = remember(selected?.id, historyDate) { selected?.let { vm.detectionsForDay(it.id, historyDate.toString()) } ?: flowOf(emptyList()) }
     val detections by detectionFlow.collectAsStateWithLifecycle(emptyList())
     val dark = isSystemInDarkTheme()
-    val page = if (dark) Color(0xFF0B1420) else Cream
-    val ink = if (dark) Color(0xFFF2F5F8) else Navy
-    val tapSurface = if (dark) Color(0xFF263D52) else SoftBlue
-    val scheme = if (dark) darkColorScheme(primary = Color(0xFFB8D5F2), onPrimary = Color(0xFF102238), secondary = Color(0xFFE3BD73), onSecondary = Color(0xFF30230C), background = Color(0xFF0B1420), onBackground = Color(0xFFF2F5F8), surface = Color(0xFF172638), onSurface = Color(0xFFF2F5F8), surfaceVariant = Color(0xFF22384D), onSurfaceVariant = Color(0xFFC4D0DC), outline = Color(0xFF52677B))
-                 else lightColorScheme(primary = Navy, secondary = Gold, background = page, surface = Color.White)
-
-    MaterialTheme(colorScheme = scheme) {
+    val scheme = counterColors(dark)
+    val ink = scheme.onSurface
+    MaterialTheme(colorScheme = scheme, shapes = Shapes(medium = RoundedCornerShape(20.dp), large = RoundedCornerShape(24.dp))) {
         if (showPermissionIntro) {
             AlertDialog(
                 onDismissRequest = {
@@ -348,123 +339,45 @@ fun CounterApp(repo: CounterRepository) {
             )
         }
         if (voiceModelsDialog) VoiceModelsDialog(english = english, onDismiss = { voiceModelsDialog = false })
-        ModalNavigationDrawer(
-            drawerState = drawerState,
-            drawerContent = {
-                ModalDrawerSheet {
-                    Column(Modifier.fillMaxWidth().padding(18.dp)) {
-                        Text(if (english) "BABY MOVEMENT COUNTER" else "बाळाच्या हालचाली", style = MaterialTheme.typography.titleLarge, color = ink, fontWeight = FontWeight.Bold)
-                        Spacer(Modifier.height(14.dp))
-                        categories.forEach { cat ->
-                            val glyph = Icons.Default.PregnantWoman
-                            NavigationDrawerItem(
-                                icon = { Icon(glyph, null) },
-                                label = { Text(if (english) "Baby Movements" else "बाळाची हालचाल") },
-                                selected = selected?.id == cat.id && !remindersScreen && !pregnancyScreen,
-                                onClick = { pregnancyScreen = false; selectedId = cat.id; remindersScreen = false; weekly = false; monthlyHistory = false; backupScreen = false; scope.launch { drawerState.close() } }
-                            )
-                        }
-                        
-                        Divider(Modifier.padding(vertical = 8.dp))
-                        NavigationDrawerItem(
-                            icon = { Icon(Icons.Default.PregnantWoman, null) },
-                            label = { Text(if (english) "Pregnancy timeline" else "गर्भावस्थेची कालरेषा") },
-                            selected = pregnancyScreen,
-                            onClick = {
-                                pregnancyScreen = true
-                                remindersScreen = false
-                                backupScreen = false
-                                weekly = false
-                                monthlyHistory = false
-                                scope.launch { drawerState.close() }
-                            }
-                        )
-                        NavigationDrawerItem(icon = { Icon(Icons.Default.NotificationsActive, null) }, label = { Text(if (english) "Reminders" else "स्मरणपत्रे") }, selected = remindersScreen, onClick = { pregnancyScreen = false; remindersScreen = true; weekly = false; monthlyHistory = false; backupScreen = false; scope.launch { drawerState.close() } })
-                        
-                        NavigationDrawerItem(icon = { Icon(Icons.Default.Save, null) }, label = { Text(if (english) "Backup & export" else "बॅकअप व निर्यात") }, selected = backupScreen, onClick = { pregnancyScreen = false; backupScreen = true; remindersScreen = false; weekly = false; monthlyHistory = false; scope.launch { drawerState.close() } })
-                        NavigationDrawerItem(icon = { Icon(Icons.Default.Download, null) }, label = { Text(if (english) "AI voice setup" else "AI आवाज सेटअप") }, selected = voiceModelsDialog, onClick = { voiceModelsDialog = true; scope.launch { drawerState.close() } })
-                        NavigationDrawerItem(icon = { Icon(Icons.Default.BarChart, null) }, label = { Text(if (english) "Weekly report" else "साप्ताहिक अहवाल") }, selected = weekly, onClick = { pregnancyScreen = false; weekly = true; remindersScreen = false; monthlyHistory = false; backupScreen = false; scope.launch { drawerState.close() } })
-                        NavigationDrawerItem(icon = { Icon(Icons.Default.History, null) }, label = { Text(if (english) "History" else "इतिहास") }, selected = monthlyHistory, onClick = { pregnancyScreen = false; monthlyHistory = true; remindersScreen = false; weekly = false; backupScreen = false; scope.launch { drawerState.close() } })
-                        NavigationDrawerItem(
-                            icon = { Icon(Icons.Default.Language, null) },
-                            label = { Text(if (english) "मराठी" else "English") },
-                            selected = false,
-                            onClick = {
-                                val nextLanguage = !english
-                                english = nextLanguage
-                                context.getSharedPreferences("app_preferences", android.content.Context.MODE_PRIVATE)
-                                    .edit().putBoolean("english_language", nextLanguage).apply()
-                                scope.launch { drawerState.close() }
-                            }
-                        )
-                        Spacer(Modifier.weight(1f))
-                        Text(
-                            if (english) "Designed & developed by Bharat Rasave" else "निर्मिती व संकल्पना · Bharat Rasave",
-                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = .55f),
-                            style = MaterialTheme.typography.labelSmall,
-                            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 18.dp),
-                            textAlign = androidx.compose.ui.text.style.TextAlign.Center
-                        )
-                    }
+        Scaffold(containerColor = scheme.background, bottomBar = {
+            NavigationBar(containerColor = scheme.surface) {
+                AppTab.entries.forEach { item ->
+                    NavigationBarItem(selected = tab == item, onClick = { tab = item; detail = SettingsDetail.None },
+                        icon = { Icon(item.icon, null) }, label = { Text(if (english) item.en else item.mr) })
                 }
             }
-        ) {
-        Surface(Modifier.fillMaxSize(), color = page) {
-            Column(Modifier.fillMaxSize().padding(horizontal = 18.dp, vertical = 12.dp)) {
-                Row(
-                    Modifier.fillMaxWidth()
-                        .background(Color(0xFF31413A), RoundedCornerShape(22.dp))
-                        .padding(horizontal = 10.dp, vertical = 9.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    IconButton(onClick = { scope.launch { drawerState.open() } }) { Icon(Icons.Default.Menu, null, tint = Color(0xFFF3EEE3)) }
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.Center
-                    ) {
-                        Image(
-                            painter = painterResource(id = R.drawable.bilan_header_logo_light),
-                            contentDescription = "Bilan",
-                            modifier = Modifier.width(94.dp).height(32.dp),
-                            contentScale = ContentScale.Fit
-                        )
-                        Text(
-                            if (english) "Baby Movement Counter" else "बाळाची हालचाल",
-                            color = Color(0xFFF3EEE3),
-                            style = MaterialTheme.typography.labelSmall,
-                            fontWeight = FontWeight.Medium
-                        )
-                    }
-                    Spacer(Modifier.weight(1f))
-                    IconButton(onClick = {
-                        pregnancyScreen = false
-                        remindersScreen = true; weekly = false; monthlyHistory = false
-                        backupScreen = false
-                    }) {
-                        Icon(Icons.Default.NotificationsActive, contentDescription = if (english) "Reminders" else "स्मरणपत्रे", tint = Color(0xFFF3EEE3))
-                    }
-                    IconButton(onClick = {
-                        historyDate = LocalDate.now()
-                        historyMonth = LocalDate.now().withDayOfMonth(1)
-                        pregnancyScreen = false
-                        monthlyHistory = true; remindersScreen = false; weekly = false
-                        backupScreen = false
-                    }) {
-                        Icon(Icons.Default.History, contentDescription = if (english) "History" else "इतिहास", tint = Color(0xFFF3EEE3))
+        }) { padding ->
+            Column(Modifier.fillMaxSize().padding(padding).padding(horizontal = 16.dp)) {
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    Text("Tynimovez", modifier = Modifier.weight(1f), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                    IconButton(onClick = { tab = AppTab.Settings; detail = SettingsDetail.Reminders }) {
+                        Icon(Icons.Default.NotificationsActive, if (english) "Reminders" else "स्मरणपत्रे")
                     }
                 }
-                Spacer(Modifier.height(12.dp))
-
-                Column(Modifier.weight(1f)) {
+                if (tab == AppTab.History) Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    FilterChip(selected = !weekly, onClick = { weekly = false }, label = { Text(if (english) "Monthly" else "मासिक") })
+                    FilterChip(selected = weekly, onClick = { weekly = true }, label = { Text(if (english) "Weekly" else "साप्ताहिक") })
+                }
                 Box(Modifier.weight(1f)) {
-                if (pregnancyScreen) {
+                if (tab == AppTab.Timeline) {
                     PregnancyCalculatorScreen(english)
-                } else if (backupScreen) {
+                } else if (tab == AppTab.Settings && detail == SettingsDetail.Backup) {
                     BackupAndSyncScreen(english)
-                } else if (remindersScreen) {
+                } else if (tab == AppTab.Settings && detail == SettingsDetail.Reminders) {
                     ReminderSettingsScreen(english = english, ink = ink)
-                } else
-                if (monthlyHistory && isBaby && selected != null) {
+                } else if (tab == AppTab.Settings) {
+                    Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text(if (english) "Settings" else "सेटिंग्ज", style = MaterialTheme.typography.headlineMedium)
+                        SettingsRow(if (english) "Daily reminders" else "दैनिक स्मरणपत्रे") { detail = SettingsDetail.Reminders }
+                        SettingsRow(if (english) "Backup & sync" else "बॅकअप आणि सिंक") { detail = SettingsDetail.Backup }
+                        SettingsRow(if (english) "AI voice setup" else "AI आवाज सेटअप") { voiceModelsDialog = true }
+                        SettingsRow(if (english) "Language · मराठी" else "भाषा · English") {
+                            english = !english
+                            context.getSharedPreferences("app_preferences", android.content.Context.MODE_PRIVATE)
+                                .edit().putBoolean("english_language", english).apply()
+                        }
+                    }
+                } else if (tab == AppTab.History && !weekly && isBaby && selected != null) {
                     MonthlyHistoryScreen(
                         english = english, ink = ink, month = historyMonth, sessions = monthSessions,
                         onPrevious = { historyMonth = historyMonth.minusMonths(1) },
@@ -472,7 +385,7 @@ fun CounterApp(repo: CounterRepository) {
                         onExportPdf = { exportMonthlyPdf(context, selected.titleMr, selected.titleEn, historyMonth, monthSessions, english) },
                         onEditSession = { session -> scope.launch { vm.updateBabySessionRecord(session) } }
                     )
-                } else if (monthlyHistory && selected != null) {
+                } else if (tab == AppTab.History && !weekly && selected != null) {
                     CounterHistoryScreen(
                         english = english, ink = ink, date = historyDate, logs = historyLogs, days = days,
                         onPrevious = { historyDate = historyDate.minusDays(1) },
@@ -480,8 +393,7 @@ fun CounterApp(repo: CounterRepository) {
                         onUpdate = { log -> scope.launch { vm.updateLog(log) } },
                         onDelete = { log -> scope.launch { vm.deleteLog(log.id) } }
                     )
-                } else if (weekly) {
-                } else if (weekly) {
+                } else if (tab == AppTab.History && weekly) {
                     Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
                         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                             StatTile(if (english) "TOTAL" else "एकूण", days.sumOf { it.total }.toString(), ink, Modifier.weight(1f))
@@ -507,7 +419,6 @@ fun CounterApp(repo: CounterRepository) {
                         onAutoStartVoiceConsumed = { autoStartBabyVoice = false },
                         english = english,
                         ink = ink,
-                        tapSurface = tapSurface,
                         latestSession = latestSession,
                         activeSession = activeSession,
                         resumableSession = resumableSession,
@@ -516,7 +427,7 @@ fun CounterApp(repo: CounterRepository) {
                         sessions = sessions,
                         detections = detections,
                         recentLogs = historyLogs,
-                        onViewHistory = { historyDate = LocalDate.now(); historyMonth = LocalDate.now().withDayOfMonth(1); monthlyHistory = true },
+                        onViewHistory = { historyDate = LocalDate.now(); historyMonth = LocalDate.now().withDayOfMonth(1); tab = AppTab.History; weekly = false },
                         historyDate = historyDate,
                         onPreviousDay = { historyDate = historyDate.minusDays(1) },
                         onNextDay = { if (historyDate.isBefore(LocalDate.now())) historyDate = historyDate.plusDays(1) },
@@ -537,11 +448,8 @@ fun CounterApp(repo: CounterRepository) {
                 }
             }
         }
-        }
     }
-
-    }
-    if (finishDialog && activeSession != null) {
+    if (finishDialog && activeSession != null) MaterialTheme(colorScheme = scheme) {
         AlertDialog(
             onDismissRequest = { finishDialog = false },
             title = { Text(if (english) "Rate movement strength" else "बाळाच्या हालचालींची ताकद नोंदवा") },
@@ -566,7 +474,7 @@ fun CounterApp(repo: CounterRepository) {
 @Composable
 private fun BabyMovementScreen(
     autoStartVoice: Boolean, onAutoStartVoiceConsumed: () -> Unit,
-    english: Boolean, ink: Color, tapSurface: Color, latestSession: BabySession?, activeSession: BabySession?,
+    english: Boolean, ink: Color, latestSession: BabySession?, activeSession: BabySession?,
     resumableSession: BabySession?, lockedSession: BabySession?, remainingMs: Long, sessions: List<BabySession>, detections: List<BabyDetection>, recentLogs: List<CounterLog>, onViewHistory: () -> Unit, historyDate: LocalDate,
     onPreviousDay: () -> Unit, onNextDay: () -> Unit, onStart: () -> Unit, onResume: (Long) -> Unit, onTap: (Long) -> Unit,
     onUndo: (Long) -> Unit, onFinish: () -> Unit, onAutoMovement: (Long, Long, Float) -> Unit,
@@ -575,10 +483,6 @@ private fun BabyMovementScreen(
     val context = LocalContext.current
     var guidanceExpanded by remember { mutableStateOf(false) }
     val elapsed = activeSession?.let { (System.currentTimeMillis() - it.startedAt).coerceAtLeast(0L) } ?: 0L
-    val sessionLimit = CounterRepository.TWO_HOURS_MS
-    val progress = (elapsed.toFloat() / sessionLimit).coerceIn(0f, 1f)
-    val tapScale = remember { Animatable(1f) }
-    val tapScope = rememberCoroutineScope()
     var autoDetect by remember(activeSession?.id) { mutableStateOf(false) }
     var autoStatus by remember(activeSession?.id) { mutableStateOf("") }
     var voiceListening by remember(activeSession?.id) { mutableStateOf(false) }
@@ -593,20 +497,39 @@ private fun BabyMovementScreen(
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         if (activeSession != null) {
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
-                Column(Modifier.weight(1f), verticalArrangement = Arrangement.Center) {
-                    Text(if (english) "BABY MOVEMENTS" else "बाळाची हालचाल", color = ink.copy(alpha=.55f), style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, maxLines = 1)
-                    Text(periodLabel(activeSession.dayPeriod, english) + " · " + sessionTime(activeSession.startedAt),
-                        color = ink, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.SemiBold, maxLines = 1)
+            Text(if (english) "Baby movements" else "बाळाची हालचाल", modifier = Modifier.fillMaxWidth(),
+                style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
+            Card(Modifier.fillMaxWidth().padding(vertical = 12.dp)) {
+                Column(Modifier.fillMaxWidth().padding(20.dp), horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(if (english) "Active session" else "सत्र सुरू", style = MaterialTheme.typography.labelLarge)
+                    Text(activeSession.movementCount.toString(), style = MaterialTheme.typography.displayLarge, fontWeight = FontWeight.Bold)
+                    Text(if (english) "movements" else "हालचाली")
+                    Text((if (english) "Elapsed time  " else "झालेला वेळ  ") + "%02d:%02d".format(elapsed / 60000, elapsed / 1000 % 60))
+                    activeSession.timeToTenMs?.let {
+                        Text((if (english) "Time to 10 movements · " else "१० हालचालींचा वेळ · ") + "%.1f min".format(it / 60000.0))
+                    }
+                    Button(onClick = { onTap(activeSession.id) }, modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)) {
+                        Icon(Icons.Default.Add, null)
+                        Text(if (english) "Add movement" else "हालचाल जोडा")
+                    }
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        TextButton(onClick = { onUndo(activeSession.id) }, enabled = activeSession.movementCount > 0) {
+                            Text(if (english) "Undo" else "मागे")
+                        }
+                        TextButton(onClick = onFinish) { Text(if (english) "Finish session" else "सत्र पूर्ण करा") }
+                    }
                 }
+            }
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
                 Button(
                     onClick = { autoDetect = !autoDetect },
-                    modifier = Modifier.height(40.dp),
+                    modifier = Modifier.heightIn(min = 48.dp),
                     contentPadding = PaddingValues(horizontal = 10.dp, vertical = 5.dp),
                     shape = RoundedCornerShape(12.dp),
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = if (autoDetect) Color(0xFF26734D) else Color(0xFFE6EEF6),
-                        contentColor = if (autoDetect) Color.White else ink
+                        containerColor = if (autoDetect) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant,
+                        contentColor = if (autoDetect) MaterialTheme.colorScheme.onPrimary else ink
                     )
                 ) {
                     Icon(Icons.Default.DirectionsWalk, contentDescription = null, modifier = Modifier.size(17.dp))
@@ -644,83 +567,28 @@ private fun BabyMovementScreen(
                 onStatus = { autoStatus = it }
             )
             Spacer(Modifier.height(8.dp))
-            Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(26.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
-                Column(Modifier.fillMaxWidth().padding(10.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                    Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text(if (english) "MOVEMENTS" else "हालचाली", color = ink.copy(alpha=.55f), style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
-                        Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-                            Text(activeSession.movementCount.toString(), color = ink, style = MaterialTheme.typography.displayMedium, fontWeight = FontWeight.ExtraBold, textAlign = TextAlign.Center)
-                            Surface(Modifier.align(Alignment.CenterEnd).padding(end = 4.dp), shape = RoundedCornerShape(9.dp), color = tapSurface.copy(alpha = .65f)) {
-                                TextButton(onClick = { if (activeSession.movementCount > 0) onUndo(activeSession.id) }, enabled = activeSession.movementCount > 0,
-                                    contentPadding = PaddingValues(horizontal = 9.dp, vertical = 2.dp), modifier = Modifier.height(34.dp)) {
-                                    Icon(Icons.Default.Undo, null, modifier = Modifier.size(15.dp)); Spacer(Modifier.width(3.dp))
-                                    Text(if (english) "Undo" else "मागे", style = MaterialTheme.typography.labelSmall)
-                                }
-                            }
-                        }
-                    }
-                    Spacer(Modifier.height(20.dp))
-                    Box(Modifier.size(232.dp), contentAlignment = Alignment.Center) {
-                        Canvas(Modifier.fillMaxSize()) {
-                            drawCircle(tapSurface, style = androidx.compose.ui.graphics.drawscope.Stroke(width = 14.dp.toPx()))
-                            drawArc(Gold, -90f, 360f * progress, false, style = androidx.compose.ui.graphics.drawscope.Stroke(width = 14.dp.toPx(), cap = StrokeCap.Round))
-                        }
-                        val tapInteraction = remember { MutableInteractionSource() }
-                        Box(
-                            Modifier.size(193.dp)
-                                .graphicsLayer(scaleX = tapScale.value, scaleY = tapScale.value)
-                                .background(Brush.linearGradient(if (activeSession.movementCount >= 10) listOf(Color(0xFFE2F5E8), Color(0xFFC6EBD2)) else listOf(Color(0xFFFFE6DD), Color(0xFFFFC9B9))), CircleShape)
-                                .clickable(interactionSource = tapInteraction, indication = null) {
-                                    tapScope.launch { tapScale.animateTo(.92f, tween(90)); tapScale.animateTo(1f, tween(180)) }
-                                    onTap(activeSession.id)
-                                },
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                Icon(Icons.Default.PregnantWoman, null, tint = Color(0xFFC65F68), modifier = Modifier.size(44.dp))
-                                Text("+1", color = Color(0xFF7F3546), style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.ExtraBold)
-                                Text(if (english) "TAP TO COUNT" else "स्पर्श करून मोजा", color = Color(0xFF7F3546), style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
-                            }
-                        }
-                    }
-                    Spacer(Modifier.height(10.dp))
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                        Text("%02d:%02d".format(elapsed / 60000, (elapsed / 1000) % 60), color = ink, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                        Text("%02d:%02d".format(remainingMs / 3600000, (remainingMs / 60000) % 60), color = Gold, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                    }
-                    LinearProgressIndicator(progress = { progress }, modifier = Modifier.fillMaxWidth().padding(top = 7.dp).height(6.dp).clip(CircleShape), color = Gold, trackColor = tapSurface)
-                    if (activeSession.timeToTenMs != null) {
-                        Surface(Modifier.fillMaxWidth().padding(top = 12.dp), shape = RoundedCornerShape(14.dp), color = Color(0xFFE8F4EC)) {
-                            Column(Modifier.padding(12.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                                Text(if (english) "10 MOVEMENTS REACHED" else "१० हालचाली पूर्ण", color = Color(0xFF246B48), style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
-                                Text(if (english) "Time: " + "%.1f min".format(activeSession.timeToTenMs / 60000.0) else "वेळ: " + "%.1f मिनिटे".format(activeSession.timeToTenMs / 60000.0), color = Color(0xFF246B48), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.ExtraBold)
-                            }
-                        }
-                    }
-                }
-            }
         } else {
             Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(26.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
                 Column(Modifier.fillMaxWidth().padding(22.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                    Icon(Icons.Default.PregnantWoman, null, tint = Color(0xFFC65F68), modifier = Modifier.size(42.dp))
+                    Icon(Icons.Default.PregnantWoman, null, tint = ink, modifier = Modifier.size(42.dp))
                     Text(if (english) "Baby movement" else "बाळाची हालचाल", color = ink, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
                     if (latestSession != null && latestSession.timeToTenMs != null) {
-                        Surface(Modifier.fillMaxWidth().padding(top = 14.dp), shape = RoundedCornerShape(16.dp), color = Color(0xFFE8F4EC)) {
+                        Surface(Modifier.fillMaxWidth().padding(top = 14.dp), shape = RoundedCornerShape(16.dp), color = MaterialTheme.colorScheme.surfaceVariant) {
                             Column(Modifier.padding(14.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                                Text(if (english) "10 MOVEMENTS COMPLETED" else "१० हालचाली पूर्ण", color = Color(0xFF246B48), style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
-                                Text("%.1f".format((latestSession.timeToTenMs ?: 0L) / 60000.0) + (if (english) " min" else " मिनिटे"), color = Color(0xFF246B48), style = MaterialTheme.typography.displaySmall, fontWeight = FontWeight.ExtraBold)
-                                Text(if (english) "Time taken to feel 10 movements" else "१० हालचाली जाणवण्यासाठी लागलेला वेळ", color = Color(0xFF246B48), style = MaterialTheme.typography.bodySmall)
+                                Text(if (english) "10 MOVEMENTS COMPLETED" else "१० हालचाली पूर्ण", color = ink, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
+                                Text("%.1f".format((latestSession.timeToTenMs ?: 0L) / 60000.0) + (if (english) " min" else " मिनिटे"), color = ink, style = MaterialTheme.typography.displaySmall, fontWeight = FontWeight.ExtraBold)
+                                Text(if (english) "Time taken to feel 10 movements" else "१० हालचाली जाणवण्यासाठी लागलेला वेळ", color = ink, style = MaterialTheme.typography.bodySmall)
                             }
                         }
                     }
                     if (resumableSession != null) {
                         Spacer(Modifier.height(28.dp))
-                        Button(onClick = { onResume(resumableSession.id) }, modifier = Modifier.height(46.dp)) {
+                        Button(onClick = { onResume(resumableSession.id) }, modifier = Modifier.fillMaxWidth().heightIn(min = 50.dp)) {
                             Icon(Icons.Default.PlayArrow, null); Spacer(Modifier.width(7.dp)); Text(if (english) "Resume session" else "सत्र पुन्हा सुरू करा")
                         }
                     } else if (lockedSession == null) {
                         Spacer(Modifier.height(12.dp))
-                        Button(onClick = onStart, modifier = Modifier.height(46.dp)) {
+                        Button(onClick = onStart, modifier = Modifier.fillMaxWidth().heightIn(min = 50.dp)) {
                             Icon(Icons.Default.PlayArrow, null); Spacer(Modifier.width(7.dp)); Text(if (english) "Start session" else "सत्र सुरू करा")
                         }
                     }
@@ -728,9 +596,9 @@ private fun BabyMovementScreen(
             }
         }
         if (detections.isNotEmpty() || autoDetect) {
-            Card(Modifier.fillMaxWidth().padding(top = 10.dp), shape = RoundedCornerShape(16.dp), colors = CardDefaults.cardColors(containerColor = Color.White)) {
+            Card(Modifier.fillMaxWidth().padding(top = 10.dp), shape = RoundedCornerShape(16.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
                 Column(Modifier.fillMaxWidth().padding(10.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                    Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).background(Navy).padding(horizontal = 12.dp, vertical = 9.dp),
+                    Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).background(Charcoal).padding(horizontal = 12.dp, vertical = 9.dp),
                         verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
                         Text(if (english) "PHONE MOTION" else "फोनची हालचाल", color = Color.White, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
                         if (autoDetect) {
@@ -797,9 +665,9 @@ private fun BabyMovementScreen(
                             Column(Modifier.weight(1f)) {
                                 Text(periodLabel(session.dayPeriod, english) + " · " + sessionTime(session.startedAt), color = ink, fontWeight = FontWeight.Bold)
                                 val duration = ((session.endedAt ?: minOf(session.startedAt + CounterRepository.TWO_HOURS_MS, System.currentTimeMillis())) - session.startedAt).coerceAtLeast(0) / 60000
-                                if (session.timeToTenMs != null) Text((if (english) "10 in " else "१० साठी ") + "%.1f min".format(session.timeToTenMs / 60000.0), color = Color(0xFF238451), style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
+                                if (session.timeToTenMs != null) Text((if (english) "10 in " else "१० साठी ") + "%.1f min".format(session.timeToTenMs / 60000.0), color = ink, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
                             }
-                            Text(session.movementCount.toString(), color = Gold, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.ExtraBold)
+                            Text(session.movementCount.toString(), color = ink, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.ExtraBold)
                         }
                     }
                 }
@@ -820,7 +688,7 @@ private fun BabyMovementScreen(
         Card(Modifier.fillMaxWidth().padding(top = 8.dp, bottom = 8.dp), shape = RoundedCornerShape(16.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = .65f))) {
             Column(Modifier.padding(13.dp)) {
                 Row(
-                    Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).background(Navy).clickable { guidanceExpanded = !guidanceExpanded }.padding(horizontal = 12.dp, vertical = 11.dp),
+                    Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).background(Charcoal).clickable { guidanceExpanded = !guidanceExpanded }.padding(horizontal = 12.dp, vertical = 11.dp),
                     verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween
                 ) {
                     Text(if (english) "MOVEMENT GUIDANCE" else "हालचालींबाबत सूचना", color = Color.White, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
@@ -829,7 +697,7 @@ private fun BabyMovementScreen(
                 Text(
                     if (english) "If movements become less frequent or feel different from your baby's usual pattern, contact your maternity-care professional promptly. Do not wait for the timer."
                     else "हालचाली नेहमीपेक्षा कमी किंवा वेगळ्या वाटल्यास वेळ संपण्याची वाट न पाहता त्वरित डॉक्टरांशी संपर्क साधा.",
-                    color = Color(0xFF9A5B36), style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(top = 6.dp)
+                    color = ink, style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(top = 6.dp)
                 )
                 if (guidanceExpanded) {
                     Text(
@@ -863,11 +731,11 @@ fun WeeklyChart(days: List<DayTotal>, modifier: Modifier = Modifier) {
     Row(modifier, horizontalArrangement=Arrangement.spacedBy(6.dp), verticalAlignment=Alignment.Bottom) {
         days.forEach { day ->
             Column(Modifier.weight(1f),horizontalAlignment=Alignment.CenterHorizontally,verticalArrangement=Arrangement.Bottom) {
-                Text(day.total.toString(),color=Navy,style=MaterialTheme.typography.labelSmall,fontWeight=FontWeight.Bold)
+                Text(day.total.toString(),color=MaterialTheme.colorScheme.onSurface,style=MaterialTheme.typography.labelSmall,fontWeight=FontWeight.Bold)
                 Spacer(Modifier.height(5.dp))
-                Box(Modifier.fillMaxWidth(.72f).weight(1f,false).height((145f*day.total/maxValue).coerceAtLeast(if(day.total>0) 8f else 3f).dp).clip(RoundedCornerShape(topStart=8.dp,topEnd=8.dp)).background(if(day.total==maxValue) Gold else Color(0xFF9BB6D3)))
+                Box(Modifier.fillMaxWidth(.72f).weight(1f,false).height((145f*day.total/maxValue).coerceAtLeast(if(day.total>0) 8f else 3f).dp).clip(RoundedCornerShape(topStart=8.dp,topEnd=8.dp)).background(if(day.total==maxValue) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline))
                 Spacer(Modifier.height(7.dp))
-                Text(day.date.takeLast(2),color=Navy.copy(alpha=.65f),style=MaterialTheme.typography.labelSmall)
+                Text(day.date.takeLast(2),color=MaterialTheme.colorScheme.onSurface.copy(alpha=.65f),style=MaterialTheme.typography.labelSmall)
             }
         }
     }
@@ -887,6 +755,7 @@ private fun MonthlyHistoryScreen(
     val context = LocalContext.current
     val totals = sessions.groupBy { it.date }.mapValues { entry -> entry.value.sumOf { it.movementCount } }
     val daysInMonth = month.lengthOfMonth()
+    var expandedSession by rememberSaveable { mutableStateOf<Long?>(null) }
     Column(Modifier.fillMaxSize()) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
             TextButton(onClick = onPrevious) { Text("‹") }
@@ -917,15 +786,16 @@ private fun MonthlyHistoryScreen(
                     val endValue = session.endedAt ?: (session.startedAt + CounterRepository.TWO_HOURS_MS)
                     var editDate by remember(session.id) { mutableStateOf(session.date) }
                     var editTime by remember(session.id) { mutableStateOf(Instant.ofEpochMilli(session.startedAt).atZone(zone).toLocalTime().format(DateTimeFormatter.ofPattern("HH:mm"))) }
-                    Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
+                    Card(onClick = { expandedSession = if (expandedSession == session.id) null else session.id }, colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
                         Row(Modifier.fillMaxWidth().padding(10.dp), verticalAlignment = Alignment.CenterVertically) {
                             Column(Modifier.weight(1f)) {
                                 Text("${session.date}  •  ${periodLabel(session.dayPeriod, english)}  •  ${sessionTime(session.startedAt)}", color = ink, fontWeight = FontWeight.Medium)
+                                if (expandedSession == session.id) Text((if (english) "Session duration · " else "सत्र कालावधी · ") + ((minOf(endValue, System.currentTimeMillis()) - session.startedAt).coerceAtLeast(0L) / 60000) + " min", color = ink)
                                 session.strength?.let { Text(strengthLabel(it, english), color = ink.copy(alpha = .65f), style = MaterialTheme.typography.bodySmall) }
                                 session.timeToTenMs?.let { Text((if (english) "Time to 10: " else "१० हालचालींसाठी वेळ: ") + "%.1f".format(it / 60000.0) + (if (english) " min" else " मिनिटे"), color = ink.copy(alpha = .65f), style = MaterialTheme.typography.bodySmall) }
                             }
                             Column(horizontalAlignment = Alignment.End) {
-                                Text(session.movementCount.toString(), color = Gold, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                                Text(session.movementCount.toString(), color = ink, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
                                 IconButton(onClick = { editCount = session.movementCount.toString(); editDate = session.date; editTime = Instant.ofEpochMilli(session.startedAt).atZone(zone).toLocalTime().format(DateTimeFormatter.ofPattern("HH:mm")); editSession = true }) { Icon(Icons.Default.Edit, contentDescription = if (english) "Edit session" else "सत्र संपादित करा", tint = ink) }
                             }
                         }
@@ -1000,9 +870,9 @@ private fun MonthlyChart(values: List<Int>, modifier: Modifier = Modifier) {
         val width = gap * .62f
         values.forEachIndexed { index, value ->
             val height = (size.height * .88f * value / max).coerceAtLeast(if (value > 0) 2f else 0f)
-            drawRoundRect(Gold, androidx.compose.ui.geometry.Offset(index * gap + gap * .18f, size.height - height), androidx.compose.ui.geometry.Size(width, height), androidx.compose.ui.geometry.CornerRadius(4f))
+            drawRoundRect(Sand, androidx.compose.ui.geometry.Offset(index * gap + gap * .18f, size.height - height), androidx.compose.ui.geometry.Size(width, height), androidx.compose.ui.geometry.CornerRadius(4f))
         }
-        drawLine(Navy.copy(alpha = .25f), androidx.compose.ui.geometry.Offset(0f, size.height), androidx.compose.ui.geometry.Offset(size.width, size.height), strokeWidth = 1.5f)
+        drawLine(Charcoal.copy(alpha = .25f), androidx.compose.ui.geometry.Offset(0f, size.height), androidx.compose.ui.geometry.Offset(size.width, size.height), strokeWidth = 1.5f)
     }
 }
 

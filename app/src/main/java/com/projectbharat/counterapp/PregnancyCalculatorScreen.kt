@@ -10,6 +10,8 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.size
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
@@ -206,24 +208,20 @@ private fun PregnancySummary(
     val month = text("Month $running running · $completed completed",
         "महीना $running चल रहा है · $completed पूरे", "महिना $running चालू · $completed पूर्ण")
     val stage = text("Trimester ${timeline.trimester}", "तिमाही ${timeline.trimester}", "तिमाही ${timeline.trimester}")
-    val cream = Color(0xFFF7F2E7)
-    val accent = Color(0xFFEBC586)
-    Surface(Modifier.fillMaxWidth(), shape = RoundedCornerShape(24.dp), color = Color(0xFF304238),
-        contentColor = cream) {
-        Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(9.dp)) {
-            Text(stage, color = accent, style = MaterialTheme.typography.labelLarge)
-            Text(gestation, style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.SemiBold)
-            Text(month, style = MaterialTheme.typography.bodyMedium)
-            Row(Modifier.fillMaxWidth().padding(top = 4.dp), horizontalArrangement = Arrangement.spacedBy(5.dp)) {
-                val segments = listOf(0L to 98L, 98L to 98L, 196L to 84L)
-                segments.forEach { (start, length) ->
-                    val fill = ((timeline.daysElapsed - start) / length.toFloat()).coerceIn(0f, 1f)
-                    Box(Modifier.weight(length.toFloat()).height(6.dp).background(cream.copy(alpha = .25f), RoundedCornerShape(4.dp))) {
-                        if (fill > 0f) Box(Modifier.fillMaxWidth(fill).height(6.dp).background(accent, RoundedCornerShape(4.dp)))
-                    }
-                }
+    Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Box(Modifier.size(192.dp), contentAlignment = Alignment.Center) {
+            CircularProgressIndicator(progress = { (timeline.daysElapsed / 280f).coerceIn(0f, 1f) },
+                modifier = Modifier.size(192.dp), strokeWidth = 8.dp, color = Sand,
+                trackColor = MaterialTheme.colorScheme.surfaceVariant)
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Text(weeks.toString(), style = MaterialTheme.typography.displayLarge, fontWeight = FontWeight.Bold)
+                Text(text("weeks", "सप्ताह", "आठवडे"))
+                Text(text("$days days", "$days दिन", "$days दिवस"), style = MaterialTheme.typography.bodySmall)
             }
         }
+        Text(month, style = MaterialTheme.typography.titleMedium)
+        Text(stage, style = MaterialTheme.typography.bodyMedium)
     }
     val remaining = timeline.daysToDueDate
     val until37 = timeline.daysToWeek37
