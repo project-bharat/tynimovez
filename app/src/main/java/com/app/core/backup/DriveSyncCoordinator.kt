@@ -88,24 +88,24 @@ class DriveSyncCoordinator<T>(
         val previousHash = prefs.getString("hash", null)
         val previous = savedRevision()
         val remote = drive.revision()
-        val localChanged = localHash != previousHash
-        when {
-            remote == null && previous != null -> throw DriveBackupConflict()
-            remote == null -> record(drive.upload(repository.encode(local), null), localHash)
-            remote.sameRevision(previous) && localChanged ->
-                record(drive.upload(repository.encode(local), remote), localHash)
-            remote.sameRevision(previous) -> record(remote, localHash)
-            else -> {
-                val cloud = repository.decode(drive.download(remote))
+        val action = decideDriveSync(localHash != previousHash, previous, remote)
+        when (action) {
+            DriveSyncAction.CREATE -> record(drive.upload(repository.encode(local), null), localHash)
+            DriveSyncAction.UPDATE ->
+                record(drive.upload(repository.encode(local), requireNotNull(remote)), localHash)
+            DriveSyncAction.UNCHANGED -> record(requireNotNull(remote), localHash)
+            DriveSyncAction.CONFLICT -> throw DriveBackupConflict()
+            DriveSyncAction.RESTORE_IF_CLEAN, DriveSyncAction.COMPARE -> {
+                val revision = requireNotNull(remote)
+                val cloud = repository.decode(drive.download(revision))
                 val cloudHash = repository.fingerprint(cloud)
-                when {
-                    cloudHash == localHash -> record(remote, localHash)
-                    previous != null && !localChanged -> {
-                        repository.replace(cloud, local)
-                        record(remote, cloudHash)
+                if (cloudHash != localHash) {
+                    if (action != DriveSyncAction.RESTORE_IF_CLEAN) {
+                        throw DriveBackupConflict()
                     }
-                    else -> throw DriveBackupConflict()
+                    repository.replace(cloud, local)
                 }
+                record(revision, cloudHash)
             }
         }
     }
@@ -123,7 +123,8 @@ class DriveSyncCoordinator<T>(
         action: suspend (GoogleDriveSyncManager) -> Unit
     ): Result<Unit> = mutex.withLock {
         val current = mutableState.value
-        val email = current.email ?: return@withLock Result.success(Unit)
+        val email = current.email ?: return@withLock if (periodic) Result.success(Unit)
+            else Result.failure(DriveAuthorizationRequired())
         if (periodic && !current.automatic) return@withLock Result.success(Unit)
         mutableState.value = current.copy(syncing = true, message = null)
         try {
@@ -160,6 +161,20 @@ class DriveSyncCoordinator<T>(
         const val IMMEDIATE_WORK = "private-drive-manual-backup"
         val network = Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build()
     }
+}
+
+internal enum class DriveSyncAction { CREATE, UPDATE, UNCHANGED, COMPARE, RESTORE_IF_CLEAN, CONFLICT }
+
+internal fun decideDriveSync(
+    localChanged: Boolean,
+    previous: DriveBackupRevision?,
+    remote: DriveBackupRevision?
+): DriveSyncAction = when {
+    remote == null -> if (previous == null) DriveSyncAction.CREATE else DriveSyncAction.CONFLICT
+    remote.sameRevision(previous) -> if (localChanged) DriveSyncAction.UPDATE else DriveSyncAction.UNCHANGED
+    previous != null && remote.id == previous.id && remote.modifiedAt >= previous.modifiedAt &&
+        !localChanged -> DriveSyncAction.RESTORE_IF_CLEAN
+    else -> DriveSyncAction.COMPARE
 }
 
 interface DriveSyncProvider {

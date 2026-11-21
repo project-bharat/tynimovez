@@ -4,8 +4,12 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
 import java.io.IOException
-import java.net.HttpURLConnection
-import java.net.URL
+import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.OkHttpClient
+import okhttp3.Request
+import okhttp3.RequestBody.Companion.toRequestBody
+import okhttp3.Response
+import java.util.concurrent.TimeUnit
 import java.time.Instant
 import java.util.UUID
 
@@ -32,13 +36,13 @@ class GoogleDriveSyncManager internal constructor(private val token: String) {
         if (files.length() == 0) null else {
             val id = checkedId(files.getJSONObject(0).getString("id"))
             request("$FILES/$id?fields=$FIELDS") {
-                metadata(JSONObject(it.readText()), it.getHeaderField("ETag"))
+                metadata(JSONObject(it.readText()), it.header("ETag"))
             }
         }
     }
 
     suspend fun uploadBackup(json: String): Result<Long> = backupResult {
-        upload(json, expected = null).modifiedAt
+        upload(json, expected = revision()).modifiedAt
     }
 
     suspend fun downloadLatestBackup(): Result<String?> = backupResult {
@@ -47,7 +51,7 @@ class GoogleDriveSyncManager internal constructor(private val token: String) {
 
     internal suspend fun download(expected: DriveBackupRevision): String = withContext(Dispatchers.IO) {
         val body = request("$FILES/${expected.id}?alt=media") { connection ->
-            connection.inputStream.use { it.readBackup() }
+            connection.readText()
         }
         if (!expected.sameRevision(revision())) throw DriveBackupConflict()
         body
@@ -69,12 +73,12 @@ class GoogleDriveSyncManager internal constructor(private val token: String) {
                 val end = "\r\n--$boundary--\r\n"
                 request("$UPLOAD?uploadType=multipart&fields=$FIELDS", "POST",
                     "multipart/related; boundary=$boundary", start.toByteArray() + content + end.toByteArray()) {
-                    metadata(JSONObject(it.readText()), it.getHeaderField("ETag"))
+                    metadata(JSONObject(it.readText()), it.header("ETag"))
                 }
             } else {
                 request("$UPLOAD/${current.id}?uploadType=media&fields=$FIELDS", "PATCH",
                     "application/json; charset=UTF-8", content, current.etag) {
-                    metadata(JSONObject(it.readText()), it.getHeaderField("ETag"))
+                    metadata(JSONObject(it.readText()), it.header("ETag"))
                 }
             }
         }
@@ -88,7 +92,7 @@ class GoogleDriveSyncManager internal constructor(private val token: String) {
         return id
     }
 
-    private fun HttpURLConnection.readText() = inputStream.use { it.readBackup() }
+    private fun Response.readText() = requireNotNull(body).byteStream().use { it.readBackup() }
 
     private fun <T> request(
         url: String,
@@ -96,33 +100,25 @@ class GoogleDriveSyncManager internal constructor(private val token: String) {
         contentType: String? = null,
         body: ByteArray? = null,
         etag: String? = null,
-        read: (HttpURLConnection) -> T
+        read: (Response) -> T
     ): T {
-        val connection = URL(url).openConnection() as HttpURLConnection
-        try {
-            connection.requestMethod = method
-            connection.instanceFollowRedirects = false
-            connection.connectTimeout = 15_000
-            connection.readTimeout = 30_000
-            connection.setRequestProperty("Authorization", "Bearer $token")
-            if (etag != null) connection.setRequestProperty("If-Match", etag)
-            if (body != null) {
-                connection.doOutput = true
-                connection.setRequestProperty("Content-Type", contentType)
-                connection.setFixedLengthStreamingMode(body.size)
-                connection.outputStream.use { it.write(body) }
-            }
-            when (val status = connection.responseCode) {
-                in 200..299 -> return read(connection)
+        val request = Request.Builder().url(url)
+            .header("Authorization", "Bearer $token")
+            .method(method, body?.toRequestBody(contentType?.toMediaType()))
+        if (etag != null) request.header("If-Match", etag)
+        return http.newCall(request.build()).execute().use { response ->
+            when (val status = response.code) {
+                in 200..299 -> read(response)
                 412 -> throw DriveBackupConflict()
                 else -> throw DriveRequestFailed(status)
             }
-        } finally {
-            connection.disconnect()
         }
     }
 
     private companion object {
+        val http = OkHttpClient.Builder().followRedirects(false).retryOnConnectionFailure(false)
+            .callTimeout(60, TimeUnit.SECONDS).build()
+
         const val NAME = "app_cloud_backup.json"
         const val FILES = "https://www.googleapis.com/drive/v3/files"
         const val UPLOAD = "https://www.googleapis.com/upload/drive/v3/files"

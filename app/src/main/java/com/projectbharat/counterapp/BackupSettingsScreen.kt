@@ -123,6 +123,9 @@ fun BackupAndSyncScreen(english: Boolean) {
                 if (!pro) {
                     Text(label("Automatically save backups to your Google account’s private app folder.",
                         "तुमच्या Google खात्यातील अॅपच्या खाजगी फोल्डरमध्ये बॅकअप आपोआप जतन करा."))
+                    if (state.email != null) TextButton(onClick = { run { drive.disconnect() } }, enabled = !busy) {
+                        Text(label("Disconnect Google Drive", "Google Drive डिस्कनेक्ट करा"))
+                    }
                     Button(onClick = { paywall = true }) { Text(label("Upgrade to Pro", "प्रो घ्या")) }
                     TextButton(onClick = { run { check(app.subscription.refresh()) { label("No active Pro subscription found.", "सक्रिय प्रो सदस्यता सापडली नाही.") } } },
                         enabled = !busy) { Text(label("Check subscription", "सदस्यता तपासा")) }
