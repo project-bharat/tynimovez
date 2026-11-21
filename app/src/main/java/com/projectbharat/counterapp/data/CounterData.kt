@@ -192,10 +192,20 @@ interface CounterDao {
     suspend fun deleteLog(id: Long)
 
     @Transaction
-    suspend fun addBabyMovementAtomically(log: CounterLog, sessionId: Long, durationMs: Long): Long {
-        val id = addLog(log)
-        incrementBabySession(sessionId, durationMs)
-        return id
+    suspend fun addBabyMovementsAtomically(
+        sessionId: Long, now: Long, sessionLimitMs: Long, amount: Int, strength: String?,
+        expectedStart: Long? = null
+    ): Boolean {
+        val session = babySession(sessionId) ?: return false
+        if (expectedStart != null && session.startedAt != expectedStart) return false
+        val duration = now - session.startedAt
+        if (session.endedAt != null || duration >= sessionLimitMs) return false
+        repeat(amount) {
+            addLog(CounterLog(date = session.date, timestamp = now, categoryId = session.categoryId,
+                strength = strength, sessionId = sessionId))
+            incrementBabySession(sessionId, duration)
+        }
+        return true
     }
 
     @Transaction
@@ -280,6 +290,9 @@ interface CounterDao {
 
     @Query("SELECT * FROM baby_sessions WHERE id=:id LIMIT 1")
     suspend fun babySession(id: Long): BabySession?
+
+    @Query("SELECT * FROM baby_sessions WHERE id=:id LIMIT 1")
+    fun observeBabySession(id: Long): Flow<BabySession?>
 
     @Query("SELECT AVG(timeToTenMs) FROM baby_sessions WHERE categoryId=:categoryId AND timeToTenMs IS NOT NULL AND date BETWEEN :fromDate AND :toDate")
     fun averageBabyTimeToTen(categoryId: Long, fromDate: String, toDate: String): Flow<Double?>

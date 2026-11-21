@@ -146,7 +146,7 @@ object BabySessionNotification {
                 actionPending(CounterQuickActions.ACTION_BABY_ADD, 7111))
             .addAction(android.R.drawable.ic_menu_revert, if (english) "Undo" else "मागे",
                 actionPending(CounterQuickActions.ACTION_BABY_UNDO, 7112))
-            .addAction(android.R.drawable.ic_btn_speak_now, if (english) "Voice count" else "आवाज मोजा", voice)
+            .addAction(android.R.drawable.ic_btn_speak_now, if (english) "AI voice" else "AI आवाज", voice)
             .build()
         runCatching { NotificationManagerCompat.from(context).notify(NOTIFICATION_ID, notification) }
     }
@@ -174,7 +174,7 @@ class QuickActionReceiver : BroadcastReceiver() {
                         if (session != null && session.categoryId == categoryId && session.endedAt == null &&
                             System.currentTimeMillis() < session.startedAt + CounterRepository.TWO_HOURS_MS) {
                             val repository = CounterRepository(dao)
-                            if (action == CounterQuickActions.ACTION_BABY_ADD) repository.addBabyMovement(categoryId, sessionId, null)
+                            if (action == CounterQuickActions.ACTION_BABY_ADD) repository.addBabyMovement(sessionId, null)
                             else repository.undoBabyMovement(sessionId)
                             val refreshed = dao.babySession(sessionId)
                             if (refreshed != null && refreshed.endedAt == null &&

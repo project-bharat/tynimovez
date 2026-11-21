@@ -198,7 +198,7 @@ class CounterViewModel(private val repo: CounterRepository) : ViewModel() {
     suspend fun confirmDetection(id: Long) = repo.confirmBabyDetection(id)
     suspend fun dismissDetection(id: Long) = repo.dismissBabyDetection(id)
     suspend fun startSession(id: Long) = repo.startBabySession(id)
-    suspend fun addMovement(id: Long, sessionId: Long) = repo.addBabyMovement(id, sessionId, null)
+    suspend fun addMovement(sessionId: Long) = repo.addBabyMovement(sessionId, null)
     suspend fun undoMovement(sessionId: Long) = repo.undoBabyMovement(sessionId)
     suspend fun finishSession(sessionId: Long, strength: String?) = repo.finishBabySession(sessionId, strength)
     suspend fun updateBabySessionRecord(session: BabySession) = repo.updateBabySessionRecord(session)
@@ -239,39 +239,10 @@ fun CounterApp(repo: CounterRepository) {
                 .getBoolean("english_language", false)
         )
     }
-    var voiceModelSummary by remember { mutableStateOf("Checking…") }
     LaunchedEffect(english) {
         context.getSharedPreferences("app_preferences", android.content.Context.MODE_PRIVATE)
             .edit().putBoolean("english_language", english).apply()
     }
-    LaunchedEffect(context, english) {
-        while (true) {
-            voiceModelSummary = withContext(Dispatchers.IO) {
-                val mgr = OfflineSpeechModelManager(context.applicationContext)
-                val flags = listOf(mgr.isInstalled(false), mgr.isInstalled(true))
-                val workManager = androidx.work.WorkManager.getInstance(context)
-                val works = listOf("sherpa_mr", "sherpa_en").map { tag ->
-                    tag to runCatching { workManager.getWorkInfosByTag(tag).get().firstOrNull() }.getOrNull()
-                }
-                val ready = flags.count { it }
-                val progress = flags.indices.sumOf { index ->
-                    val info = works[index].second
-                    when {
-                        flags[index] || info?.state == androidx.work.WorkInfo.State.SUCCEEDED -> 100
-                        info?.state == androidx.work.WorkInfo.State.RUNNING -> info.progress.getInt("progress", 0).coerceIn(0, 100)
-                        else -> 0
-                    }
-                } / 2
-                if (ready == 2) {
-                    if (english) "2/2 ready · 100%" else "2/2 तयार · 100%"
-                } else if (works.any { it.second?.state == androidx.work.WorkInfo.State.RUNNING } || progress > 0) {
-                    if (english) "Baby voice models · $progress% downloaded" else "बाळ आवाज मॉडेल · $progress% डाउनलोड"
-                } else if (english) "$ready/2 ready · $progress%" else "$ready/2 तयार · $progress%"
-            }
-            delay(1800)
-        }
-    }
-
     var weekly by remember { mutableStateOf(false) }
     var monthlyHistory by remember { mutableStateOf(false) }
     var historyMonth by remember { mutableStateOf(LocalDate.now().withDayOfMonth(1)) }
@@ -331,6 +302,10 @@ fun CounterApp(repo: CounterRepository) {
         if (shortcutKind == "BABY") {
             categories.firstOrNull { it.kind == "BABY" }?.let { baby ->
                 selectedId = baby.id
+                remindersScreen = false
+                backupScreen = false
+                weekly = false
+                monthlyHistory = false
                 if (shortcutQuickStart) scope.launch { vm.startSession(baby.id) }
                 if (shortcutBabyVoice) autoStartBabyVoice = true
             }
@@ -420,7 +395,7 @@ fun CounterApp(repo: CounterRepository) {
                         NavigationDrawerItem(icon = { Icon(Icons.Default.NotificationsActive, null) }, label = { Text(if (english) "Reminders" else "स्मरणपत्रे") }, selected = remindersScreen, onClick = { remindersScreen = true; weekly = false; monthlyHistory = false; backupScreen = false; scope.launch { drawerState.close() } })
                         
                         NavigationDrawerItem(icon = { Icon(Icons.Default.Save, null) }, label = { Text(if (english) "Backup & export" else "बॅकअप व निर्यात") }, selected = backupScreen, onClick = { backupScreen = true; remindersScreen = false; weekly = false; monthlyHistory = false; scope.launch { drawerState.close() } })
-                        NavigationDrawerItem(icon = { Icon(Icons.Default.Download, null) }, label = { Text((if (english) "Offline voice models" else "ऑफलाइन आवाज मॉडेल") + " · " + voiceModelSummary) }, selected = voiceModelsDialog, onClick = { voiceModelsDialog = true; scope.launch { drawerState.close() } })
+                        NavigationDrawerItem(icon = { Icon(Icons.Default.Download, null) }, label = { Text(if (english) "AI voice setup" else "AI आवाज सेटअप") }, selected = voiceModelsDialog, onClick = { voiceModelsDialog = true; scope.launch { drawerState.close() } })
                         NavigationDrawerItem(icon = { Icon(Icons.Default.BarChart, null) }, label = { Text(if (english) "Weekly report" else "साप्ताहिक अहवाल") }, selected = weekly, onClick = { weekly = true; remindersScreen = false; monthlyHistory = false; backupScreen = false; scope.launch { drawerState.close() } })
                         NavigationDrawerItem(icon = { Icon(Icons.Default.History, null) }, label = { Text(if (english) "History" else "इतिहास") }, selected = monthlyHistory, onClick = { monthlyHistory = true; remindersScreen = false; weekly = false; backupScreen = false; scope.launch { drawerState.close() } })
                         NavigationDrawerItem(
@@ -563,10 +538,7 @@ fun CounterApp(repo: CounterRepository) {
                         onTap = { sessionId ->
                             haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                             clickTone.startTone(ToneGenerator.TONE_PROP_BEEP, 65)
-                            scope.launch { vm.addMovement(selected.id, sessionId) }
-                        },
-                        onVoiceCount = { sessionId, amount ->
-                            scope.launch { repeat(amount) { vm.addMovement(selected.id, sessionId) } }
+                            scope.launch { vm.addMovement(sessionId) }
                         },
                         onUndo = { sessionId -> scope.launch { vm.undoMovement(sessionId) } },
                         onFinish = { finishDialog = true },
@@ -629,7 +601,7 @@ private fun BabyMovementScreen(
     english: Boolean, ink: Color, tapSurface: Color, latestSession: BabySession?, activeSession: BabySession?,
     resumableSession: BabySession?, lockedSession: BabySession?, remainingMs: Long, sessions: List<BabySession>, detections: List<BabyDetection>, recentLogs: List<CounterLog>, onViewHistory: () -> Unit, historyDate: LocalDate,
     onPreviousDay: () -> Unit, onNextDay: () -> Unit, onStart: () -> Unit, onResume: (Long) -> Unit, onTap: (Long) -> Unit,
-    onVoiceCount: (Long, Int) -> Unit, onUndo: (Long) -> Unit, onFinish: () -> Unit, onAutoMovement: (Long, Long, Float) -> Unit,
+    onUndo: (Long) -> Unit, onFinish: () -> Unit, onAutoMovement: (Long, Long, Float) -> Unit,
     onConfirmDetections: (List<Long>) -> Unit, onDismissDetections: (List<Long>) -> Unit
 ) {
     val context = LocalContext.current
@@ -678,7 +650,6 @@ private fun BabyMovementScreen(
                     onAutoStartConsumed = onAutoStartVoiceConsumed,
                     activeSessionId = activeSession.id,
                     english = english,
-                    onCount = { spokenCount -> onVoiceCount(activeSession.id, spokenCount) },
                     onRecognitionState = { active, status, transcript, detectedCount ->
                         voiceListening = active
                         voiceStatus = status

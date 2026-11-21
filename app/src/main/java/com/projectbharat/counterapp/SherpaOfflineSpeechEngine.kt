@@ -126,7 +126,7 @@ internal class SherpaOfflineSpeechEngine(
         var failure: Throwable? = null
         try {
             checkMicrophoneAccess()
-            postStatus(if (english) "Loading offline English model…" else "मराठी ऑफलाइन मॉडेल लोड होत आहे…")
+            postStatus(if (english) "Preparing voice counting…" else "आवाज मोजणी तयार होत आहे…")
             // Reuse the already-loaded native recognizer on subsequent sessions.
             recognizer = SherpaRecognizerCache.get(modelFiles)
 
