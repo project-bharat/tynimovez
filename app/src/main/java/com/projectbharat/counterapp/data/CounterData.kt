@@ -219,7 +219,15 @@ interface CounterDao {
     @Query("DELETE FROM counter_logs WHERE categoryId=:categoryId AND date=:date")
     suspend fun resetDay(categoryId: Long, date: String)
 
-    @Query("SELECT date, SUM(count) AS total FROM counter_logs WHERE categoryId=:categoryId AND date BETWEEN :fromDate AND :toDate GROUP BY date ORDER BY date")
+    @Query("""
+        SELECT date, SUM(count) AS total FROM (
+            SELECT date, count FROM counter_logs
+            WHERE categoryId = :categoryId AND date BETWEEN :fromDate AND :toDate
+            UNION ALL
+            SELECT date, 0 AS count FROM baby_sessions
+            WHERE categoryId = :categoryId AND date BETWEEN :fromDate AND :toDate
+        ) GROUP BY date ORDER BY date
+    """)
     fun weeklyTotals(categoryId: Long, fromDate: String, toDate: String): Flow<List<DayTotal>>
 
     @Query("SELECT AVG(sessionDurationMs) FROM counter_logs WHERE categoryId=:categoryId AND sessionDurationMs IS NOT NULL AND date BETWEEN :fromDate AND :toDate")

@@ -14,8 +14,7 @@ class CounterRepository(private val dao: CounterDao) {
     }
     suspend fun deleteLog(id: Long) = dao.deleteLog(id)
 
-    fun week(categoryId: Long): Flow<List<DayTotal>> {
-        val today = LocalDate.now()
+    fun week(categoryId: Long, today: LocalDate): Flow<List<DayTotal>> {
         return dao.weeklyTotals(categoryId, today.minusDays(6).toString(), today.toString())
     }
     fun babySessionsForDay(categoryId: Long, date: String = LocalDate.now().toString()) =

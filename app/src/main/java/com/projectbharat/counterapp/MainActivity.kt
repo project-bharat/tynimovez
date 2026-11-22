@@ -180,7 +180,7 @@ class CounterViewModel(private val repo: CounterRepository) : ViewModel() {
     fun logsForDay(id: Long, date: LocalDate) = repo.logsForDay(id, date)
     suspend fun updateLog(log: CounterLog) = repo.updateLog(log)
     suspend fun deleteLog(id: Long) = repo.deleteLog(id)
-    fun week(id: Long) = repo.week(id)
+    fun week(id: Long, today: LocalDate) = repo.week(id, today)
     fun averageBabyTimeToTen(id: Long) = repo.averageBabyTimeToTen(id)
     fun sessions(id: Long, date: String) = repo.babySessionsForDay(id, date)
     fun monthSessions(id: Long, month: LocalDate) = repo.babySessionsForMonth(id, month)
@@ -283,7 +283,8 @@ fun CounterApp(repo: CounterRepository) {
     LaunchedEffect(categories) { if (categories.isNotEmpty() && categories.none { it.id == selectedId }) selectedId = categories.first().id }
 
     val countFlow = remember(selected?.id) { selected?.let { vm.count(it.id) } ?: flowOf(0) }
-    val weekFlow = remember(selected?.id) { selected?.let { vm.week(it.id) } ?: flowOf(emptyList()) }
+    val weekEnd = Instant.ofEpochMilli(clock).atZone(ZoneId.systemDefault()).toLocalDate()
+    val weekFlow = remember(selected?.id, weekEnd) { selected?.let { vm.week(it.id, weekEnd) } ?: flowOf(emptyList()) }
     val averageFlow = remember(selected?.id) { selected?.let { vm.averageBabyTimeToTen(it.id) } ?: flowOf(null) }
     val sessionFlow = remember(selected?.id, historyDate) { selected?.let { vm.sessions(it.id, historyDate.toString()) } ?: flowOf(emptyList()) }
     val historyLogsFlow = remember(selected?.id, historyDate) { selected?.let { vm.logsForDay(it.id, historyDate) } ?: flowOf(emptyList()) }
@@ -400,13 +401,21 @@ fun CounterApp(repo: CounterRepository) {
                             StatTile(if (english) "DAILY AVG" else "दररोज सरासरी", "%.1f".format(days.sumOf { it.total }.toDouble() / 7.0), ink, Modifier.weight(1f))
                         }
                         Spacer(Modifier.height(14.dp))
-                        WeeklyChart(days, Modifier.fillMaxWidth().height(210.dp))
+                        WeeklyChart(days, Modifier.fillMaxWidth().height(185.dp), weekEnd)
+                        Text(if (english) "— No session   ·   0 Recorded zero" else "— सत्र नाही   ·   ० शून्य हालचालींची नोंद",
+                            style = MaterialTheme.typography.bodySmall)
+                        Spacer(Modifier.height(12.dp))
                         if (isBaby) Text((if (english) "Average time to 10 movements: " else "१० हालचालींसाठी सरासरी वेळ: ") + (average?.let { "%.1f min".format(it / 60000.0) } ?: "—"))
                         Spacer(Modifier.height(16.dp))
                         Button(onClick = {
                             val lines = buildString {
                                 append(if (english) "Last 7 days\n" else "मागील ७ दिवसांची नोंद\n")
-                                days.forEach { append("${it.date}: ${it.total}\n") }
+                                val totals = days.associate { it.date to it.total }
+                                for (offset in 6 downTo 0) {
+                                    val date = weekEnd.minusDays(offset.toLong()).toString()
+                                    val value = totals[date]?.toString() ?: if (english) "No session" else "सत्र नाही"
+                                    append("$date: $value\n")
+                                }
                                 append(if (english) "Total: " else "एकूण: "); append(days.sumOf { it.total })
                             }
                             val send = Intent(Intent.ACTION_SEND).apply { type = "text/plain"; putExtra(Intent.EXTRA_TEXT, lines) }
@@ -738,16 +747,24 @@ private fun StatTile(label: String, value: String, ink: Color, modifier: Modifie
 }
 
 @Composable
-fun WeeklyChart(days: List<DayTotal>, modifier: Modifier = Modifier) {
-    val maxValue=(days.maxOfOrNull{it.total} ?: 0).coerceAtLeast(1)
-    Row(modifier, horizontalArrangement=Arrangement.spacedBy(6.dp), verticalAlignment=Alignment.Bottom) {
-        days.forEach { day ->
-            Column(Modifier.weight(1f),horizontalAlignment=Alignment.CenterHorizontally,verticalArrangement=Arrangement.Bottom) {
-                Text(day.total.toString(),color=MaterialTheme.colorScheme.onSurface,style=MaterialTheme.typography.labelSmall,fontWeight=FontWeight.Bold)
-                Spacer(Modifier.height(5.dp))
-                Box(Modifier.fillMaxWidth(.72f).weight(1f,false).height((145f*day.total/maxValue).coerceAtLeast(if(day.total>0) 8f else 3f).dp).clip(RoundedCornerShape(topStart=8.dp,topEnd=8.dp)).background(if(day.total==maxValue) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline))
-                Spacer(Modifier.height(7.dp))
-                Text(day.date.takeLast(2),color=MaterialTheme.colorScheme.onSurface.copy(alpha=.65f),style=MaterialTheme.typography.labelSmall)
+fun WeeklyChart(days: List<DayTotal>, modifier: Modifier = Modifier, end: LocalDate = LocalDate.now()) {
+    val totals = days.associate { it.date to it.total }
+    val maximum = (days.maxOfOrNull { it.total } ?: 0).coerceAtLeast(1)
+    Row(modifier, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+        for (offset in 6 downTo 0) {
+            val date = end.minusDays(offset.toLong())
+            val count = totals[date.toString()]
+            Column(Modifier.weight(1f).fillMaxHeight(), horizontalAlignment = Alignment.CenterHorizontally) {
+                Text(count?.toString() ?: "—", style = MaterialTheme.typography.labelMedium)
+                Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.BottomCenter) {
+                    if (count != null && count > 0) {
+                        Box(Modifier.fillMaxHeight(count.toFloat() / maximum).width(16.dp)
+                            .background(MaterialTheme.colorScheme.primary, RoundedCornerShape(topStart = 6.dp, topEnd = 6.dp)))
+                    } else if (count == 0) {
+                        Box(Modifier.width(16.dp).height(2.dp).background(MaterialTheme.colorScheme.outline))
+                    }
+                }
+                Text("${date.dayOfMonth}/${date.monthValue}", style = MaterialTheme.typography.labelSmall)
             }
         }
     }
