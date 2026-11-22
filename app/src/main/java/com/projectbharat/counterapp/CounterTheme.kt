@@ -11,7 +11,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
 
 internal enum class AppTab(val en: String, val mr: String, val icon: ImageVector) {
-    Movements("Movements", "हालचाली", Icons.Default.Favorite),
+    Movements("Count", "मोजणी", Icons.Default.Favorite),
     Timeline("Timeline", "कालरेषा", Icons.Default.DateRange),
     History("History", "इतिहास", Icons.Default.BarChart),
     Settings("Settings", "सेटिंग्ज", Icons.Default.Settings)

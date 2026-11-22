@@ -18,6 +18,9 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
+import androidx.compose.material3.Icon
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material3.Card
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -227,9 +230,18 @@ private fun PregnancySummary(
     val until37 = timeline.daysToWeek37
     Card(Modifier.fillMaxWidth()) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
-            Text(text("Estimated due date", "अनुमानित प्रसव तारीख", "अंदाजित प्रसूती तारीख"),
-                style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            Text(timeline.dueDate.format(format), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                Box(Modifier.size(48.dp).background(MaterialTheme.colorScheme.surfaceVariant,
+                    androidx.compose.foundation.shape.CircleShape), contentAlignment = Alignment.Center) {
+                    Icon(Icons.Default.DateRange, null)
+                }
+                Column {
+                    Text(text("Estimated due date", "अनुमानित प्रसव तारीख", "अंदाजित प्रसूती तारीख"),
+                        style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(timeline.dueDate.format(format), style = MaterialTheme.typography.headlineSmall,
+                        fontWeight = FontWeight.Bold)
+                }
+            }
             Text(when {
                 remaining > 0 -> text("$remaining days until due date", "प्रसव तारीख तक $remaining दिन", "प्रसूती तारखेपर्यंत $remaining दिवस")
                 remaining == 0L -> text("Due date today", "प्रसव की अनुमानित तारीख आज है", "अंदाजित प्रसूती तारीख आज आहे")

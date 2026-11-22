@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -51,6 +52,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 
 @Composable
 fun BabyVoiceCountControl(
+    modifier: Modifier = Modifier,
     autoStart: Boolean = false,
     onAutoStartConsumed: () -> Unit = {},
     activeSessionId: Long,
@@ -128,7 +130,7 @@ fun BabyVoiceCountControl(
                 requestStart()
             }
         },
-        modifier = Modifier.height(40.dp),
+        modifier = modifier.heightIn(min = 56.dp),
         contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 10.dp, vertical = 5.dp),
         colors = ButtonDefaults.buttonColors(containerColor = if (active) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary),
         shape = RoundedCornerShape(12.dp)
