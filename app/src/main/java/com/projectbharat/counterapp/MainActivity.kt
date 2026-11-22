@@ -502,10 +502,21 @@ private fun BabyMovementScreen(
             Card(Modifier.fillMaxWidth().padding(vertical = 12.dp)) {
                 Column(Modifier.fillMaxWidth().padding(20.dp), horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text(if (english) "Active session" else "सत्र सुरू", style = MaterialTheme.typography.labelLarge)
-                    Text(activeSession.movementCount.toString(), style = MaterialTheme.typography.displayLarge, fontWeight = FontWeight.Bold)
-                    Text(if (english) "movements" else "हालचाली")
-                    Text((if (english) "Elapsed time  " else "झालेला वेळ  ") + "%02d:%02d".format(elapsed / 60000, elapsed / 1000 % 60))
+                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Box(Modifier.size(9.dp).background(Sand, CircleShape))
+                        Text(if (english) "Active session" else "सत्र सुरू", style = MaterialTheme.typography.titleMedium)
+                    }
+                    Column(Modifier.sizeIn(minWidth = 136.dp, minHeight = 136.dp)
+                        .background(MaterialTheme.colorScheme.surfaceVariant, CircleShape).padding(14.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
+                        Text(activeSession.movementCount.toString(), style = MaterialTheme.typography.displayLarge, fontWeight = FontWeight.Bold)
+                        Text(if (english) "movements" else "हालचाली", style = MaterialTheme.typography.bodyMedium)
+                    }
+                    Row(Modifier.fillMaxWidth().padding(vertical = 6.dp), horizontalArrangement = Arrangement.SpaceBetween) {
+                        Text(if (english) "Elapsed time" else "झालेला वेळ")
+                        Text("%02d:%02d".format(elapsed / 60000, elapsed / 1000 % 60), fontWeight = FontWeight.SemiBold)
+                    }
                     activeSession.timeToTenMs?.let {
                         Text((if (english) "Time to 10 movements · " else "१० हालचालींचा वेळ · ") + "%.1f min".format(it / 60000.0))
                     }
@@ -524,11 +535,11 @@ private fun BabyMovementScreen(
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
                 Button(
                     onClick = { autoDetect = !autoDetect },
-                    modifier = Modifier.heightIn(min = 48.dp),
+                    modifier = Modifier.weight(1f).heightIn(min = 56.dp),
                     contentPadding = PaddingValues(horizontal = 10.dp, vertical = 5.dp),
                     shape = RoundedCornerShape(12.dp),
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = if (autoDetect) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant,
+                        containerColor = if (autoDetect) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surface,
                         contentColor = if (autoDetect) MaterialTheme.colorScheme.onPrimary else ink
                     )
                 ) {
@@ -537,6 +548,7 @@ private fun BabyMovementScreen(
                     Text(if (autoDetect) (if (english) "Motion on" else "हालचाल सुरू") else (if (english) "Phone motion" else "फोन हालचाल"), style = MaterialTheme.typography.labelSmall, maxLines = 1)
                 }
                 BabyVoiceCountControl(
+                    modifier = Modifier.weight(1f),
                     autoStart = autoStartVoice,
                     onAutoStartConsumed = onAutoStartVoiceConsumed,
                     activeSessionId = activeSession.id,
