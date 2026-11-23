@@ -6,6 +6,11 @@ on:
       - main
       - baby-movement-only
   workflow_dispatch:
+    inputs:
+      screenshots:
+        description: Capture the Movements and Timeline screens on an emulator
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -88,3 +93,23 @@ jobs:
             dist/*.zip
           if-no-files-found: error
           retention-days: 14
+
+      - name: Allow emulator acceleration
+        if: inputs.screenshots
+        run: sudo chmod 666 /dev/kvm
+
+      - name: Capture Android screens
+        if: inputs.screenshots
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 30
+          arch: x86_64
+          profile: pixel_4
+          script: python3 .github/scripts/capture-screens.py
+
+      - name: Upload rendered screens
+        if: inputs.screenshots && always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: App screens
+          path: screenshots/*.png
