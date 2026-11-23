@@ -10,6 +10,9 @@ import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.core.RepeatMode
+import androidx.compose.material.icons.filled.RadioButtonChecked
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -52,6 +55,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 @Composable
 fun BabyVoiceCountControl(
     autoStart: Boolean = false,
+    onStartRequested: () -> Unit,
     onAutoStartConsumed: () -> Unit = {},
     activeSessionId: Long,
     english: Boolean,
@@ -71,6 +75,7 @@ fun BabyVoiceCountControl(
             return
         }
         requestStatus = BabyVoiceService.startingText(english)
+        onStartRequested()
         try {
             BabyVoiceService.start(context, activeSessionId, english)
         } catch (error: Exception) {
@@ -112,7 +117,7 @@ fun BabyVoiceCountControl(
 
     LaunchedEffect(state, requestStatus, activeSessionId, english) {
         if (state.sessionId == activeSessionId && state.status.isNotEmpty()) {
-            onRecognitionState(state.listening, state.status, "", state.latestCatch ?: 0)
+            onRecognitionState(state.listening, state.status, state.transcript, state.latestCatch ?: 0)
             if (requestStatus.isNotEmpty() && state.active) requestStatus = ""
         } else {
             onRecognitionState(false, requestStatus.ifBlank { if (english) "Voice count is off" else "आवाज मोजणी बंद" }, "", 0)
@@ -182,6 +187,9 @@ fun BabyVoiceRecognitionPanel(listening: Boolean, english: Boolean, status: Stri
                     )
                 }
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    if (listening) Icon(Icons.Default.RadioButtonChecked, null,
+                        Modifier.size(15.dp).graphicsLayer { alpha = (scale - 1f) * 3f + .5f },
+                        tint = MaterialTheme.colorScheme.primary)
                     if (loading) CircularProgressIndicator(Modifier.size(14.dp), strokeWidth = 2.dp)
                     Text(
                         shortStatus.ifBlank { if (listening) (if (english) "Listening" else "ऐकत आहे") else (if (english) "Voice count is off" else "आवाज मोजणी बंद") },
@@ -193,10 +201,18 @@ fun BabyVoiceRecognitionPanel(listening: Boolean, english: Boolean, status: Stri
             }
             Spacer(Modifier.height(9.dp))
             Text(
-                transcript.ifBlank { if (english) "Say a number from one to ten" else "एक ते दहा अंक बोला" },
+                buildAnnotatedString {
+                    append(transcript.ifBlank { if (english) "Say a number from one to ten" else "एक ते दहा अंक बोला" })
+                    Regex("""[\p{L}\p{M}\p{N}]+""").findAll(transcript).forEach { token ->
+                        if (BabyMovementNumberParser.extract(token.value, english) > 0) {
+                            addStyle(SpanStyle(color = if (androidx.compose.foundation.isSystemInDarkTheme())
+                                Color(0xFF86E5A4) else Color(0xFF106438), fontWeight = FontWeight.Bold),
+                                token.range.first, token.range.last + 1)
+                        }
+                    }
+                },
                 style = MaterialTheme.typography.bodyMedium,
                 color = if (transcript.isBlank()) MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = .75f) else MaterialTheme.colorScheme.onSurface,
-                maxLines = 2
             )
             if (detectedCount > 0) {
                 Spacer(Modifier.height(7.dp))

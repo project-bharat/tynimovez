@@ -120,8 +120,16 @@ object BabySessionNotification {
     private const val CHANNEL = "baby_active_session"
     const val NOTIFICATION_ID = 7105
 
+    internal fun actionPending(context: Context, sessionId: Long, categoryId: Long, action: String, requestCode: Int): PendingIntent =
+            PendingIntent.getBroadcast(context, requestCode,
+                Intent(context, QuickActionReceiver::class.java).setAction(action)
+                    .putExtra(CounterQuickActions.EXTRA_BABY_SESSION_ID, sessionId)
+                    .putExtra(CounterQuickActions.EXTRA_BABY_CATEGORY_ID, categoryId),
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+
     fun show(context: Context, sessionId: Long, categoryId: Long, count: Int, english: Boolean) {
         QuickActionsNotification.cancel(context)
+        if (BabyVoiceService.state.value.active) return
         if (Build.VERSION.SDK_INT >= 33 &&
             ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) return
         val manager = context.getSystemService(NotificationManager::class.java)
@@ -131,12 +139,6 @@ object BabySessionNotification {
                 setShowBadge(false)
             }
         )
-        fun actionPending(action: String, requestCode: Int): PendingIntent =
-            PendingIntent.getBroadcast(context, requestCode,
-                Intent(context, QuickActionReceiver::class.java).setAction(action)
-                    .putExtra(CounterQuickActions.EXTRA_BABY_SESSION_ID, sessionId)
-                    .putExtra(CounterQuickActions.EXTRA_BABY_CATEGORY_ID, categoryId),
-                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
         val open = PendingIntent.getActivity(context, 7110,
             Intent(context, MainActivity::class.java).setAction(MainActivity.ACTION_OPEN_COUNTER)
                 .putExtra(CounterQuickActions.EXTRA_COUNTER_KIND, "BABY")
@@ -156,9 +158,9 @@ object BabySessionNotification {
             .setOngoing(true).setOnlyAlertOnce(true)
             .setCategory(NotificationCompat.CATEGORY_SERVICE)
             .addAction(android.R.drawable.ic_input_add, if (english) "+1 Add" else "+१ जोडा",
-                actionPending(CounterQuickActions.ACTION_BABY_ADD, 7111))
+                actionPending(context, sessionId, categoryId, CounterQuickActions.ACTION_BABY_ADD, 7111))
             .addAction(android.R.drawable.ic_menu_revert, if (english) "Undo" else "मागे",
-                actionPending(CounterQuickActions.ACTION_BABY_UNDO, 7112))
+                actionPending(context, sessionId, categoryId, CounterQuickActions.ACTION_BABY_UNDO, 7112))
             .addAction(android.R.drawable.ic_btn_speak_now, if (english) "AI voice" else "AI आवाज", voice)
             .build()
         runCatching { NotificationManagerCompat.from(context).notify(NOTIFICATION_ID, notification) }
