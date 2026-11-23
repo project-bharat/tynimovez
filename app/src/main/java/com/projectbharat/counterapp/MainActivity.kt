@@ -102,13 +102,13 @@ private fun BilanLaunchSplash() {
         ) {
             Image(
                 painter = painterResource(id = R.drawable.splash_logo),
-                contentDescription = "Bilan Counter logo",
+                contentDescription = "Tynimovez Pregnancy Tracker logo",
                 modifier = Modifier.size(164.dp),
                 contentScale = ContentScale.Fit
             )
             Spacer(modifier = Modifier.height(18.dp))
             Text(
-                text = "Bilan Counter",
+                text = "Tynimovez",
                 color = if (dark) Color(0xFFF3EEE3) else Color(0xFF31413A),
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.SemiBold
@@ -428,12 +428,12 @@ fun CounterApp(repo: CounterRepository) {
                     ) {
                         Image(
                             painter = painterResource(id = R.drawable.bilan_header_logo_light),
-                            contentDescription = "Bilan",
+                            contentDescription = "Tynimovez Pregnancy Tracker",
                             modifier = Modifier.width(94.dp).height(32.dp),
                             contentScale = ContentScale.Fit
                         )
                         Text(
-                            if (english) "Baby Movement Counter" else "बाळाची हालचाल",
+                            if (english) "Pregnancy tracker" else "गर्भावस्था ट्रॅकर",
                             color = Color(0xFFF3EEE3),
                             style = MaterialTheme.typography.labelSmall,
                             fontWeight = FontWeight.Medium

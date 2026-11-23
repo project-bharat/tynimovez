@@ -1,13 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">Baby Movement Counter</string>
+    <string name="app_name">Tynimovez Pregnancy Tracker</string>
     <string name="count">Count</string>
     <string name="undo">Undo</string>
     <string name="reset">Reset</string>
     <string name="weekly_report">Weekly report</string>
     <string name="today">Today</string>
     <string name="add_category">Add category</string>
-    <string name="widget_description">Baby movement counter with quick session and voice controls.</string>
+    <string name="widget_description">Tynimovez pregnancy tracker with movement and voice controls.</string>
     <string name="default_web_client_id" translatable="false"></string>
     <string name="pro_subscription_product_id" translatable="false">tynimovez_pro</string>
 </resources>

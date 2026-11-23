@@ -98,7 +98,7 @@ object QuickActionsNotification {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
         val notification = NotificationCompat.Builder(context, CHANNEL)
             .setSmallIcon(android.R.drawable.ic_menu_today)
-            .setContentTitle("Baby Movement Counter")
+            .setContentTitle("Tynimovez Pregnancy Tracker")
             .setContentText("Quick start · Baby movement session")
             .setContentIntent(open)
             .setAutoCancel(false)
