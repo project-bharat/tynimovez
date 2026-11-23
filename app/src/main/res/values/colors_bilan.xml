@@ -1,9 +1,17 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="bilan_forest">#31413A</color>
-    <color name="bilan_cream">#F3EEE3</color>
-    <color name="bilan_gold">#D5A757</color>
-    <color name="ic_launcher_background">#31413A</color>
-    <color name="splash_background">#F3EEE3</color>
-    <color name="widget_cream">#F3EEE3</color>
+    <color name="bilan_plum_night">#3A3550</color>
+    <color name="bilan_dusk">#585272</color>
+    <color name="bilan_lilac_mist">#8A82A6</color>
+    <color name="bilan_soft_lilac">#B7AFC9</color>
+    <color name="bilan_petal">#DCD3E0</color>
+    <color name="bilan_blush_white">#F4EFF3</color>
+    <color name="bilan_forest">#585272</color>
+    <color name="bilan_cream">#F4EFF3</color>
+    <color name="bilan_gold">#8A82A6</color>
+    <color name="ic_launcher_background">#F4EFF3</color>
+    <color name="splash_background">#F4EFF3</color>
+    <color name="splash_background_light">#F4EFF3</color>
+    <color name="splash_background_dark">#3A3550</color>
+    <color name="widget_cream">#F4EFF3</color>
 </resources>

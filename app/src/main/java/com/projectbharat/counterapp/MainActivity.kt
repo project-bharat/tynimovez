@@ -93,7 +93,7 @@ private fun BilanLaunchSplash() {
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(if (dark) Color(0xFF31413A) else Color(0xFFF3EEE3)),
+            .background(if (dark) Color(0xFF3A3550) else Color(0xFFF4EFF3)),
         contentAlignment = Alignment.Center
     ) {
         Column(
@@ -109,7 +109,7 @@ private fun BilanLaunchSplash() {
             Spacer(modifier = Modifier.height(18.dp))
             Text(
                 text = "Tynimovez",
-                color = if (dark) Color(0xFFF3EEE3) else Color(0xFF31413A),
+                color = if (dark) Color(0xFFF4EFF3) else Color(0xFF3A3550),
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.SemiBold
             )
@@ -411,30 +411,28 @@ fun CounterApp(repo: CounterRepository) {
             }
         ) {
         Surface(Modifier.fillMaxSize(), color = page) {
-            val headerFade = with(androidx.compose.ui.platform.LocalDensity.current) { 110.dp.toPx() }
-            Column(Modifier.fillMaxSize().background(Brush.verticalGradient(
-                0f to Color(0xFF182F29), .62f to Color(0xFF354B42),
-                1f to if (dark) Color(0xFF223345) else page, endY = headerFade
-            )).padding(horizontal = 18.dp, vertical = 12.dp)) {
+            Column(Modifier.fillMaxSize().padding(horizontal = 18.dp, vertical = 12.dp)) {
                 Row(
                     Modifier.fillMaxWidth()
                         .padding(horizontal = 10.dp, vertical = 9.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    IconButton(onClick = { scope.launch { drawerState.open() } }) { Icon(Icons.Default.Menu, null, tint = Color(0xFFF3EEE3)) }
+                    IconButton(onClick = { scope.launch { drawerState.open() } }) { Icon(Icons.Default.Menu, null, tint = ink) }
                     Column(
                         horizontalAlignment = Alignment.CenterHorizontally,
                         verticalArrangement = Arrangement.Center
                     ) {
                         Image(
-                            painter = painterResource(id = R.drawable.bilan_header_logo_light),
+                            painter = painterResource(
+                                id = if (dark) R.drawable.bilan_header_logo_dark else R.drawable.bilan_header_logo_light
+                            ),
                             contentDescription = "Tynimovez Pregnancy Tracker",
                             modifier = Modifier.width(94.dp).height(32.dp),
                             contentScale = ContentScale.Fit
                         )
                         Text(
                             if (english) "Pregnancy tracker" else "गर्भावस्था ट्रॅकर",
-                            color = Color(0xFFF3EEE3),
+                            color = ink,
                             style = MaterialTheme.typography.labelSmall,
                             fontWeight = FontWeight.Medium
                         )
@@ -445,7 +443,7 @@ fun CounterApp(repo: CounterRepository) {
                         remindersScreen = true; weekly = false; monthlyHistory = false
                         backupScreen = false
                     }) {
-                        Icon(Icons.Default.NotificationsActive, contentDescription = if (english) "Reminders" else "स्मरणपत्रे", tint = Color(0xFFF3EEE3))
+                        Icon(Icons.Default.NotificationsActive, contentDescription = if (english) "Reminders" else "स्मरणपत्रे", tint = ink)
                     }
                     IconButton(onClick = {
                         historyDate = LocalDate.now()
@@ -454,7 +452,7 @@ fun CounterApp(repo: CounterRepository) {
                         monthlyHistory = true; remindersScreen = false; weekly = false
                         backupScreen = false
                     }) {
-                        Icon(Icons.Default.History, contentDescription = if (english) "History" else "इतिहास", tint = Color(0xFFF3EEE3))
+                        Icon(Icons.Default.History, contentDescription = if (english) "History" else "इतिहास", tint = ink)
                     }
                 }
                 Spacer(Modifier.height(12.dp))
