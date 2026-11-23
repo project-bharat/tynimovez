@@ -200,13 +200,13 @@ fun BabyVoiceRecognitionPanel(listening: Boolean, english: Boolean, status: Stri
                 }
             }
             Spacer(Modifier.height(9.dp))
+            val numberColor = if (androidx.compose.foundation.isSystemInDarkTheme()) Color(0xFF86E5A4) else Color(0xFF106438)
             Text(
                 buildAnnotatedString {
                     append(transcript.ifBlank { if (english) "Say a number from one to ten" else "एक ते दहा अंक बोला" })
                     Regex("""[\p{L}\p{M}\p{N}]+""").findAll(transcript).forEach { token ->
                         if (BabyMovementNumberParser.extract(token.value, english) > 0) {
-                            addStyle(SpanStyle(color = if (androidx.compose.foundation.isSystemInDarkTheme())
-                                Color(0xFF86E5A4) else Color(0xFF106438), fontWeight = FontWeight.Bold),
+                            addStyle(SpanStyle(color = numberColor, fontWeight = FontWeight.Bold),
                                 token.range.first, token.range.last + 1)
                         }
                     }

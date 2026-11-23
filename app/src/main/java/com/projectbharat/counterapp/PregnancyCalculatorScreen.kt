@@ -211,13 +211,13 @@ private fun PregnancySummary(
             Text(text("Estimated due date", "अनुमानित प्रसव तारीख", "अंदाजित प्रसूती तारीख"),
                 style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Text(timeline.dueDate.format(format), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
-            Text(when {
-                remaining > 0 -> text("$remaining days until due date", "प्रसव तारीख तक $remaining दिन", "प्रसूती तारखेपर्यंत $remaining दिवस")
-                remaining == 0L -> text("Due date today", "प्रसव की अनुमानित तारीख आज है", "अंदाजित प्रसूती तारीख आज आहे")
-                else -> text("${-remaining} days past due date", "प्रसव तारीख से ${-remaining} दिन आगे", "प्रसूती तारखेनंतर ${-remaining} दिवस")
-            }, style = MaterialTheme.typography.bodyMedium)
-            if (until37 > 0) Text(text("$until37 days until 37 weeks", "37 सप्ताह तक $until37 दिन",
-                "३७ आठवड्यांपर्यंत $until37 दिवस"), style = MaterialTheme.typography.bodySmall)
+            Row(Modifier.fillMaxWidth().padding(top = 6.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                TimelineMetric(kotlin.math.abs(remaining), if (remaining < 0)
+                    text("Days past due date", "प्रसव तारीख के बाद दिन", "प्रसूती तारखेनंतरचे दिवस")
+                else text("Days until due date", "प्रसव तारीख तक दिन", "प्रसूती तारखेपर्यंत दिवस"), Modifier.weight(1f))
+                if (until37 > 0) TimelineMetric(until37,
+                    text("Days to 37 weeks", "37 सप्ताह तक दिन", "३७ आठवड्यांपर्यंत दिवस"), Modifier.weight(1f))
+            }
             TextButton(onClick = { onShare("$gestation\n$month\n$stage") }) {
                 Text(text("Share milestone", "पड़ाव साझा करें", "टप्पा शेअर करा"))
             }
@@ -227,4 +227,15 @@ private fun PregnancySummary(
         "कैलेंडर महीने अनुमानित हैं। अपनी मातृत्व देखभाल टीम की पुष्टि की हुई तारीख मानें।",
         "कॅलेंडरमधील महिने अंदाजे आहेत. प्रसूती-सेवा पथकाने निश्चित केलेली तारीख वापरा."),
         style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+}
+
+@Composable
+private fun TimelineMetric(value: Long, label: String, modifier: Modifier) {
+    val colors = MaterialTheme.colorScheme
+    Column(modifier.background(Brush.linearGradient(listOf(colors.surface, colors.surfaceVariant)),
+        RoundedCornerShape(14.dp)).padding(12.dp)) {
+        Text(value.toString(), style = MaterialTheme.typography.headlineMedium,
+            fontWeight = FontWeight.Bold, color = colors.onSurface)
+        Text(label, style = MaterialTheme.typography.labelMedium, color = colors.onSurfaceVariant)
+    }
 }

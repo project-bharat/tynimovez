@@ -588,11 +588,11 @@ private fun BabyMovementScreen(
     val progress = (elapsed.toFloat() / sessionLimit).coerceIn(0f, 1f)
     val tapScale = remember { Animatable(1f) }
     val tapScope = rememberCoroutineScope()
-    var motionRequested by remember(activeSession?.id) { mutableStateOf(false) }
+    val inputGeneration by BabyVoiceService.voiceStarts.collectAsStateWithLifecycle()
+    var motionRequested by remember(activeSession?.id, inputGeneration) { mutableStateOf(false) }
     val voiceState by BabyVoiceService.state.collectAsStateWithLifecycle()
     val voiceActive = voiceState.active
     val autoDetect = motionRequested && !voiceActive
-    LaunchedEffect(voiceActive) { if (voiceActive) motionRequested = false }
     var autoStatus by remember(activeSession?.id) { mutableStateOf("") }
     var voiceListening by remember(activeSession?.id) { mutableStateOf(false) }
     var voicePanelVisible by remember(activeSession?.id) { mutableStateOf(false) }

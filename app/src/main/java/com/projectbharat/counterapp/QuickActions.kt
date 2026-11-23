@@ -127,6 +127,7 @@ object BabySessionNotification {
                     .putExtra(CounterQuickActions.EXTRA_BABY_CATEGORY_ID, categoryId),
                 PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
 
+    @Synchronized
     fun show(context: Context, sessionId: Long, categoryId: Long, count: Int, english: Boolean) {
         QuickActionsNotification.cancel(context)
         if (BabyVoiceService.state.value.active) return
@@ -166,6 +167,7 @@ object BabySessionNotification {
         runCatching { NotificationManagerCompat.from(context).notify(NOTIFICATION_ID, notification) }
     }
 
+    @Synchronized
     fun cancel(context: Context) {
         NotificationManagerCompat.from(context).cancel(NOTIFICATION_ID)
     }

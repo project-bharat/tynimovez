@@ -68,6 +68,7 @@ class BabyVoiceService : Service() {
         val current = state.value
         if (current.active && current.sessionId == id && current.english == english) return START_NOT_STICKY
 
+        starts.value += 1
         val previous = sessionJob
         previous?.cancel()
         mutableState.value = BabyVoiceState(id, english, active = true, status = startingText(english),
@@ -271,6 +272,8 @@ class BabyVoiceService : Service() {
         private const val EXTRA_ENGLISH = "english"
         private val retryDelays = longArrayOf(500, 1_000, 2_000, 4_000, 8_000)
         private val mutableState = MutableStateFlow(BabyVoiceState())
+        private val starts = MutableStateFlow(0L)
+        internal val voiceStarts = starts.asStateFlow()
         internal val state = mutableState.asStateFlow()
 
         internal fun start(context: Context, sessionId: Long, english: Boolean) {
