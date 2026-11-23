@@ -58,6 +58,7 @@ internal class SherpaOfflineSpeechEngine(
     context: Context,
     private val modelFiles: OfflineSpeechModelManager.ModelFiles,
     private val english: Boolean,
+    private val previewRequested: () -> Boolean,
     private val onTranscript: (String, Int) -> Unit,
     private val onCount: (Int) -> Unit,
     private val onStatus: (String) -> Unit,
@@ -121,14 +122,15 @@ internal class SherpaOfflineSpeechEngine(
     }
 
     private fun captureAndDecode(startupSignal: CountDownLatch) {
-        var recognizer: OfflineRecognizer? = null
+        val previews = java.util.concurrent.Executors.newSingleThreadExecutor()
+        var preview: java.util.concurrent.Future<*>? = null
         var audio: AudioRecord? = null
         var failure: Throwable? = null
         try {
             checkMicrophoneAccess()
             postStatus(if (english) "Preparing voice counting…" else "आवाज मोजणी तयार होत आहे…")
             // Reuse the already-loaded native recognizer on subsequent sessions.
-            recognizer = SherpaRecognizerCache.get(modelFiles)
+            val recognizer = SherpaRecognizerCache.get(modelFiles)
 
             if (!running.get()) return
             checkMicrophoneAccess()
@@ -165,6 +167,7 @@ internal class SherpaOfflineSpeechEngine(
             var speaking = false
             var silence = 0
             var phraseLength = 0
+            var nextPreview = SAMPLE_RATE
             val silenceLimit = (SAMPLE_RATE * 0.65f).toInt()
             val maximumPhrase = SAMPLE_RATE * 6
             val minimumPhrase = SAMPLE_RATE / 4
@@ -242,13 +245,20 @@ internal class SherpaOfflineSpeechEngine(
                     if (maxBytes > 0L && usedBytes > maxBytes * 0.85) {
                         Log.w(TAG, "High heap use at phrase boundary: ${usedBytes / (1024 * 1024)}MB / ${maxBytes / (1024 * 1024)}MB")
                     }
-                    if (phraseLength >= minimumPhrase && running.get()) decodePhrase(recognizer, phraseSamples)
+                    preview?.get()
+                    if (phraseLength >= minimumPhrase && running.get()) decodePhrase(recognizer, phraseSamples.toFloatArray(), final = true)
+                    nextPreview = SAMPLE_RATE
                     phraseSamples.clear()
                     preRoll.clear()
                     speaking = false
                     silence = 0
                     phraseLength = 0
                     if (running.get()) postStatus(if (english) "Listening offline…" else "ऑफलाइन ऐकत आहे…")
+                } else if (speaking && hasVoice && phraseLength >= nextPreview && previewRequested() &&
+                    preview?.isDone != false) {
+                    val samples = phraseSamples.toFloatArray()
+                    nextPreview = phraseLength + SAMPLE_RATE
+                    preview = previews.submit { decodePhrase(recognizer, samples, final = false) }
                 }
             }
         } catch (error: Throwable) {
@@ -266,6 +276,9 @@ internal class SherpaOfflineSpeechEngine(
             try { audio?.stop() } catch (_: Exception) {}
             try {
                 audio?.release()
+                previews.shutdown()
+                // Keep ownership while a native preview is still using the cached model.
+                preview?.get()
                 captureOwned.set(false)
             } catch (error: Exception) {
                 Log.e(TAG, "Could not release microphone; retaining capture ownership", error)
@@ -273,17 +286,17 @@ internal class SherpaOfflineSpeechEngine(
         }
     }
 
-    private fun decodePhrase(recognizer: OfflineRecognizer, samples: List<Float>) {
+    private fun decodePhrase(recognizer: OfflineRecognizer, samples: FloatArray, final: Boolean) {
         try {
             val stream = recognizer.createStream()
             try {
-                stream.acceptWaveform(samples.toFloatArray(), SAMPLE_RATE)
+                stream.acceptWaveform(samples, SAMPLE_RATE)
                 recognizer.decode(stream)
                 val phrase = recognizer.getResult(stream).text.trim()
                 if (phrase.isNotBlank()) {
                     val count = extractCount(phrase, english)
                     main.post { if (running.get()) onTranscript(phrase, count) }
-                    if (count > 0) main.post { if (running.get()) onCount(count) }
+                    if (final && count > 0) main.post { if (running.get()) onCount(count) }
                 }
             } finally {
                 stream.release()

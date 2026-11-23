@@ -411,10 +411,13 @@ fun CounterApp(repo: CounterRepository) {
             }
         ) {
         Surface(Modifier.fillMaxSize(), color = page) {
-            Column(Modifier.fillMaxSize().padding(horizontal = 18.dp, vertical = 12.dp)) {
+            val headerFade = with(androidx.compose.ui.platform.LocalDensity.current) { 110.dp.toPx() }
+            Column(Modifier.fillMaxSize().background(Brush.verticalGradient(
+                0f to Color(0xFF182F29), .62f to Color(0xFF354B42),
+                1f to if (dark) Color(0xFF223345) else page, endY = headerFade
+            )).padding(horizontal = 18.dp, vertical = 12.dp)) {
                 Row(
                     Modifier.fillMaxWidth()
-                        .background(Color(0xFF31413A), RoundedCornerShape(22.dp))
                         .padding(horizontal = 10.dp, vertical = 9.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
@@ -585,7 +588,11 @@ private fun BabyMovementScreen(
     val progress = (elapsed.toFloat() / sessionLimit).coerceIn(0f, 1f)
     val tapScale = remember { Animatable(1f) }
     val tapScope = rememberCoroutineScope()
-    var autoDetect by remember(activeSession?.id) { mutableStateOf(false) }
+    var motionRequested by remember(activeSession?.id) { mutableStateOf(false) }
+    val voiceState by BabyVoiceService.state.collectAsStateWithLifecycle()
+    val voiceActive = voiceState.active
+    val autoDetect = motionRequested && !voiceActive
+    LaunchedEffect(voiceActive) { if (voiceActive) motionRequested = false }
     var autoStatus by remember(activeSession?.id) { mutableStateOf("") }
     var voiceListening by remember(activeSession?.id) { mutableStateOf(false) }
     var voicePanelVisible by remember(activeSession?.id) { mutableStateOf(false) }
@@ -601,12 +608,14 @@ private fun BabyMovementScreen(
         if (activeSession != null) {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.Center) {
-                    Text(if (english) "BABY MOVEMENTS" else "बाळाची हालचाल", color = ink.copy(alpha=.55f), style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, maxLines = 1)
                     Text(periodLabel(activeSession.dayPeriod, english) + " · " + sessionTime(activeSession.startedAt),
                         color = ink, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.SemiBold, maxLines = 1)
                 }
                 Button(
-                    onClick = { autoDetect = !autoDetect },
+                    onClick = {
+                        motionRequested = !motionRequested
+                        if (motionRequested && voiceActive) BabyVoiceService.stop(context)
+                    },
                     modifier = Modifier.height(40.dp),
                     contentPadding = PaddingValues(horizontal = 10.dp, vertical = 5.dp),
                     shape = RoundedCornerShape(12.dp),
@@ -617,10 +626,11 @@ private fun BabyMovementScreen(
                 ) {
                     Icon(Icons.Default.DirectionsWalk, contentDescription = null, modifier = Modifier.size(17.dp))
                     Spacer(Modifier.width(5.dp))
-                    Text(if (autoDetect) (if (english) "Motion on" else "हालचाल सुरू") else (if (english) "Phone motion" else "फोन हालचाल"), style = MaterialTheme.typography.labelSmall, maxLines = 1)
+                    Text(if (autoDetect) (if (english) "Motion on" else "हालचाल सुरू") else (if (english) "Motion" else "हालचाल"), style = MaterialTheme.typography.labelSmall, maxLines = 1)
                 }
                 BabyVoiceCountControl(
                     autoStart = autoStartVoice,
+                    onStartRequested = { motionRequested = false },
                     onAutoStartConsumed = onAutoStartVoiceConsumed,
                     activeSessionId = activeSession.id,
                     english = english,
@@ -646,7 +656,7 @@ private fun BabyMovementScreen(
             Spacer(Modifier.height(6.dp))
             BabyMotionSensorEngine(
                 activeSessionId = activeSession.id, enabled = autoDetect,
-                onDetected = { timestamp, magnitude -> onAutoMovement(activeSession.id, timestamp, magnitude) },
+                onDetected = { timestamp, magnitude -> if (motionRequested && !BabyVoiceService.state.value.active) onAutoMovement(activeSession.id, timestamp, magnitude) },
                 onStatus = { autoStatus = it }
             )
             Spacer(Modifier.height(8.dp))
@@ -738,7 +748,7 @@ private fun BabyMovementScreen(
                 Column(Modifier.fillMaxWidth().padding(10.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                     Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).background(Navy).padding(horizontal = 12.dp, vertical = 9.dp),
                         verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
-                        Text(if (english) "PHONE MOTION" else "फोनची हालचाल", color = Color.White, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
+                        Text(if (english) "Motion" else "हालचाल", color = Color.White, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
                         if (autoDetect) {
                             val ready = autoStatus.contains("Ready", true) || autoStatus.contains("तयार", true)
                             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -752,7 +762,7 @@ private fun BabyMovementScreen(
                             }
                         } else Text(if (english) "OFF" else "बंद", color = Color.White.copy(alpha = .8f), style = MaterialTheme.typography.labelSmall)
                     }
-                    Text(if (english) "This detects movement of your phone—not your baby. Phone movement can create false detections. Review and add only movements you actually felt." else "हा फोनची हालचाल ओळखतो, बाळाची नाही. फोन हलल्यामुळे चुकीच्या नोंदी होऊ शकतात. प्रत्यक्ष जाणवलेल्या हालचालीच जोडा.", modifier = Modifier.fillMaxWidth().padding(top = 8.dp), color = ink.copy(alpha = .75f), style = MaterialTheme.typography.bodySmall)
+                    Text(if (english) "Phone motion detected. Add only movements you felt." else "फोनची हालचाल नोंदली जाते. जाणवलेल्या हालचालीच जोडा.", modifier = Modifier.fillMaxWidth().padding(top = 8.dp), color = ink.copy(alpha = .75f), style = MaterialTheme.typography.bodySmall)
                     Row(Modifier.fillMaxWidth().padding(vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                         Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
                             Text(if (english) "Detected" else "ओळखले", color = ink.copy(alpha = .65f), style = MaterialTheme.typography.labelSmall, textAlign = TextAlign.Center)

@@ -45,6 +45,8 @@ internal data class BabyVoiceState(
     val listening: Boolean = false,
     val status: String = "",
     val total: Int = 0,
+    val categoryId: Long? = null,
+    val transcript: String = "",
     val latestCatch: Int? = null
 )
 
@@ -74,6 +76,8 @@ class BabyVoiceService : Service() {
             ensureChannel()
             ServiceCompat.startForeground(this, NOTIFICATION_ID, notification(state.value),
                 if (Build.VERSION.SDK_INT >= 30) ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE else 0)
+            BabySessionNotification.cancel(this)
+            QuickActionsNotification.cancel(this)
         } catch (error: Exception) {
             Log.w(TAG, "Could not start foreground microphone service", error)
             fail(voiceFailure(english, error))
@@ -108,7 +112,7 @@ class BabyVoiceService : Service() {
         wakeLock.acquire(remaining.coerceAtMost(CounterRepository.TWO_HOURS_MS))
         val counts = Channel<Int>(Channel.UNLIMITED)
         try {
-            update { it.copy(total = session.movementCount) }
+            update { it.copy(total = session.movementCount, categoryId = session.categoryId) }
             launch {
                 delay(remaining)
                 CounterRepository(dao).completeExpiredBabySession(id)
@@ -122,7 +126,6 @@ class BabyVoiceService : Service() {
                         stopSelf()
                     } else {
                         update { it.copy(total = record.movementCount) }
-                        BabySessionNotification.show(this@BabyVoiceService, id, record.categoryId, record.movementCount, english)
                     }
                 }
             }
@@ -157,7 +160,10 @@ class BabyVoiceService : Service() {
                 context = applicationContext,
                 modelFiles = files,
                 english = english,
-                onTranscript = { _, _ -> },
+                previewRequested = { mutableState.subscriptionCount.value > 0 },
+                onTranscript = { phrase, _ ->
+                    if (isActive && state.value.active) mutableState.value = state.value.copy(transcript = phrase)
+                },
                 onCount = { if (isActive) onCount(it) },
                 onStatus = { status ->
                     if (isActive) update {
@@ -224,14 +230,34 @@ class BabyVoiceService : Service() {
             .setOnlyAlertOnce(true)
             .setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE)
             .setContentIntent(open)
+            .apply {
+                val sessionId = state.sessionId
+                val categoryId = state.categoryId
+                if (sessionId != null && categoryId != null) {
+                    addAction(android.R.drawable.ic_input_add, if (state.english) "+1 Add" else "+१ जोडा",
+                        BabySessionNotification.actionPending(this@BabyVoiceService, sessionId, categoryId,
+                            CounterQuickActions.ACTION_BABY_ADD, 7111))
+                }
+            }
             .addAction(0, if (state.english) "Stop" else "बंद", stop)
             .build()
     }
 
     override fun onDestroy() {
+        val ended = state.value
         scope.cancel()
         if (state.value.active) mutableState.value = BabyVoiceState()
         stopForeground(STOP_FOREGROUND_REMOVE)
+        val app = applicationContext
+        ended.sessionId?.let { id ->
+            CoroutineScope(Dispatchers.Main).launch {
+                val record = CounterDatabase.get(app).dao().babySession(id)
+                if (record != null && record.endedAt == null &&
+                    System.currentTimeMillis() < record.startedAt + CounterRepository.TWO_HOURS_MS) {
+                    BabySessionNotification.show(app, id, record.categoryId, record.movementCount, ended.english)
+                } else QuickActionsNotification.showIfIdle(app)
+            }
+        }
         super.onDestroy()
     }
 

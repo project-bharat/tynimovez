@@ -32,6 +32,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -69,10 +70,7 @@ private fun DatingMethod.label(language: PregnancyLanguage): String = with(langu
 internal fun PregnancyCalculatorScreen(english: Boolean) {
     val context = LocalContext.current
     val prefs = remember(context) { context.getSharedPreferences("pregnancy_dates", Context.MODE_PRIVATE) }
-    var language by remember {
-        mutableStateOf(PregnancyLanguage.entries.firstOrNull { it.name == prefs.getString("language", null) }
-            ?: if (english) PregnancyLanguage.ENGLISH else PregnancyLanguage.MARATHI)
-    }
+    val language = if (english) PregnancyLanguage.ENGLISH else PregnancyLanguage.MARATHI
     var method by remember {
         mutableStateOf(DatingMethod.entries.firstOrNull { it.name == prefs.getString("method", null) } ?: DatingMethod.LMP)
     }
@@ -82,7 +80,6 @@ internal fun PregnancyCalculatorScreen(english: Boolean) {
     var cycle by remember { mutableStateOf(prefs.getString("cycle", "28").orEmpty()) }
     var today by remember { mutableStateOf(LocalDate.now()) }
     var showMethods by remember { mutableStateOf(false) }
-    var showLanguages by remember { mutableStateOf(false) }
     var editing by rememberSaveable { mutableStateOf(false) }
     LifecycleResumeEffect(Unit) {
         today = LocalDate.now()
@@ -97,24 +94,6 @@ internal fun PregnancyCalculatorScreen(english: Boolean) {
     with(language) {
         Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(bottom = 20.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                Text(text("Pregnancy timeline", "गर्भावस्था की समयरेखा", "गर्भावस्थेची कालरेषा"),
-                    style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.SemiBold,
-                    modifier = Modifier.weight(1f))
-                Box {
-                    TextButton(onClick = { showLanguages = true }) { Text(language.label) }
-                    DropdownMenu(expanded = showLanguages, onDismissRequest = { showLanguages = false }) {
-                        PregnancyLanguage.entries.forEach { option ->
-                            DropdownMenuItem(text = { Text(option.label) }, onClick = {
-                                language = option
-                                prefs.edit().putString("language", option.name).apply()
-                                showLanguages = false
-                            })
-                        }
-                    }
-                }
-            }
-
             if (valid != null) {
                 PregnancySummary(valid, language, format) { milestone ->
                     val share = Intent(Intent.ACTION_SEND).setType("text/plain")
@@ -210,7 +189,7 @@ private fun PregnancySummary(
     val accent = Color(0xFFEBC586)
     Surface(Modifier.fillMaxWidth(), shape = RoundedCornerShape(24.dp), color = Color(0xFF304238),
         contentColor = cream) {
-        Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(9.dp)) {
+        Column(Modifier.fillMaxWidth().background(Brush.linearGradient(listOf(Color(0xFF203830), Color(0xFF476052)))).padding(20.dp), verticalArrangement = Arrangement.spacedBy(9.dp)) {
             Text(stage, color = accent, style = MaterialTheme.typography.labelLarge)
             Text(gestation, style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.SemiBold)
             Text(month, style = MaterialTheme.typography.bodyMedium)
@@ -228,7 +207,7 @@ private fun PregnancySummary(
     val remaining = timeline.daysToDueDate
     val until37 = timeline.daysToWeek37
     Card(Modifier.fillMaxWidth()) {
-        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
+        Column(Modifier.fillMaxWidth().background(Brush.linearGradient(listOf(MaterialTheme.colorScheme.surface, MaterialTheme.colorScheme.secondaryContainer))).padding(18.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
             Text(text("Estimated due date", "अनुमानित प्रसव तारीख", "अंदाजित प्रसूती तारीख"),
                 style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Text(timeline.dueDate.format(format), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
