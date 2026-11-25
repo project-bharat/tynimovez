@@ -195,10 +195,10 @@ class CounterViewModel(private val repo: CounterRepository) : ViewModel() {
     }
 }
 
-private val Navy = Color(0xFF102E55)
-private val Gold = Color(0xFFE7A33C)
-private val Cream = Color(0xFFF5F0E6)
-private val SoftBlue = Color(0xFFDCE9F7)
+private val Navy = Color(0xFF3A3550)
+private val Gold = Color(0xFF8A82A6)
+private val Cream = Color(0xFFF4EFF3)
+private val SoftBlue = Color(0xFFDCD3E0)
 private val zone = ZoneId.systemDefault()
 private val dateFormat = DateTimeFormatter.ofPattern("dd MMM yyyy")
 
@@ -314,10 +314,10 @@ fun CounterApp(repo: CounterRepository) {
     val detectionFlow = remember(selected?.id, historyDate) { selected?.let { vm.detectionsForDay(it.id, historyDate.toString()) } ?: flowOf(emptyList()) }
     val detections by detectionFlow.collectAsStateWithLifecycle(emptyList())
     val dark = isSystemInDarkTheme()
-    val page = if (dark) Color(0xFF0B1420) else Cream
-    val ink = if (dark) Color(0xFFF2F5F8) else Navy
-    val tapSurface = if (dark) Color(0xFF263D52) else SoftBlue
-    val scheme = if (dark) darkColorScheme(primary = Color(0xFFB8D5F2), onPrimary = Color(0xFF102238), secondary = Color(0xFFE3BD73), onSecondary = Color(0xFF30230C), background = Color(0xFF0B1420), onBackground = Color(0xFFF2F5F8), surface = Color(0xFF172638), onSurface = Color(0xFFF2F5F8), surfaceVariant = Color(0xFF22384D), onSurfaceVariant = Color(0xFFC4D0DC), outline = Color(0xFF52677B))
+    val page = if (dark) Color(0xFF3A3550) else Cream
+    val ink = if (dark) Color(0xFFF4EFF3) else Navy
+    val tapSurface = if (dark) Color(0xFF585272) else SoftBlue
+    val scheme = if (dark) darkColorScheme(primary = Color(0xFFB7AFC9), onPrimary = Color(0xFF3A3550), secondary = Color(0xFFB7AFC9), onSecondary = Color(0xFF3A3550), background = page, onBackground = ink, surface = Color(0xFF585272), onSurface = ink, surfaceVariant = Color(0xFF585272), onSurfaceVariant = Color(0xFFDCD3E0), outline = Color(0xFF8A82A6))
                  else lightColorScheme(primary = Navy, secondary = Gold, background = page, surface = Color.White)
 
     MaterialTheme(colorScheme = scheme) {
@@ -378,7 +378,6 @@ fun CounterApp(repo: CounterRepository) {
 
                         NavigationDrawerItem(icon = { Icon(Icons.Default.Save, null) }, label = { Text(if (english) "Backup & export" else "बॅकअप व निर्यात") }, selected = backupScreen, onClick = { pregnancyScreen = false; backupScreen = true; remindersScreen = false; weekly = false; monthlyHistory = false; scope.launch { drawerState.close() } })
                         NavigationDrawerItem(icon = { Icon(Icons.Default.Download, null) }, label = { Text(if (english) "AI voice setup" else "AI आवाज सेटअप") }, selected = voiceModelsDialog, onClick = { voiceModelsDialog = true; scope.launch { drawerState.close() } })
-                        NavigationDrawerItem(icon = { Icon(Icons.Default.BarChart, null) }, label = { Text(if (english) "Weekly report" else "साप्ताहिक अहवाल") }, selected = weekly, onClick = { pregnancyScreen = false; weekly = true; remindersScreen = false; monthlyHistory = false; backupScreen = false; scope.launch { drawerState.close() } })
                         NavigationDrawerItem(icon = { Icon(Icons.Default.History, null) }, label = { Text(if (english) "History" else "इतिहास") }, selected = monthlyHistory, onClick = { pregnancyScreen = false; monthlyHistory = true; remindersScreen = false; weekly = false; backupScreen = false; scope.launch { drawerState.close() } })
                         NavigationDrawerItem(
                             icon = { Icon(Icons.Default.Language, null) },
@@ -411,7 +410,6 @@ fun CounterApp(repo: CounterRepository) {
                         .padding(horizontal = 10.dp, vertical = 9.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    IconButton(onClick = { scope.launch { drawerState.open() } }) { Icon(Icons.Default.Menu, null, tint = ink) }
                     Column(
                         horizontalAlignment = Alignment.CenterHorizontally,
                         verticalArrangement = Arrangement.Center
@@ -420,7 +418,7 @@ fun CounterApp(repo: CounterRepository) {
                             painter = painterResource(
                                 id = if (dark) R.drawable.bilan_header_logo_dark else R.drawable.bilan_header_logo_light
                             ),
-                            contentDescription = "Tynimovez Pregnancy Tracker",
+                            contentDescription = "Bilan Pregnancy Tracker",
                             modifier = Modifier.width(94.dp).height(32.dp),
                             contentScale = ContentScale.Fit
                         )
@@ -447,6 +445,9 @@ fun CounterApp(repo: CounterRepository) {
                         backupScreen = false
                     }) {
                         Icon(Icons.Default.History, contentDescription = if (english) "History" else "इतिहास", tint = ink)
+                    }
+                    IconButton(onClick = { scope.launch { drawerState.open() } }) {
+                        Icon(Icons.Default.Menu, contentDescription = if (english) "Menu" else "मेनू", tint = ink)
                     }
                 }
                 Spacer(Modifier.height(12.dp))
@@ -662,8 +663,7 @@ private fun BabyMovementScreen(
                 onStatus = { autoStatus = it }
             )
             Spacer(Modifier.height(8.dp))
-            Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(26.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
-                Column(Modifier.fillMaxWidth().padding(10.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+            Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
                     Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
                         Text(if (english) "MOVEMENTS" else "हालचाली", color = ink.copy(alpha=.55f), style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
                         Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
@@ -709,7 +709,7 @@ private fun BabyMovementScreen(
                         Box(
                             Modifier.size(193.dp)
                                 .graphicsLayer(scaleX = tapScale.value, scaleY = tapScale.value)
-                                .background(Brush.linearGradient(if (activeSession.movementCount >= 10) listOf(Color(0xFFE2F5E8), Color(0xFFC6EBD2)) else listOf(Color(0xFFFFE6DD), Color(0xFFFFC9B9))), CircleShape)
+                                .background(if (activeSession.movementCount >= 10) Color(0xFFDCD3E0) else Color(0xFFF4EFF3), CircleShape)
                                 .clickable(interactionSource = tapInteraction, indication = null) {
                                     tapScope.launch { tapScale.animateTo(.92f, tween(90)); tapScale.animateTo(1f, tween(180)) }
                                     kickAnimation = true
@@ -722,17 +722,15 @@ private fun BabyMovementScreen(
                                     LottieAnimation(
                                         composition = kickComposition,
                                         progress = { kickProgress },
-                                        modifier = Modifier.size(78.dp)
+                                        modifier = Modifier.size(176.dp)
                                     )
                                 } else {
                                     LottieAnimation(
                                         composition = idleComposition,
                                         progress = { 0.35f },
-                                        modifier = Modifier.size(78.dp)
+                                        modifier = Modifier.size(176.dp)
                                     )
                                 }
-                                Text("+1", color = Color(0xFF7F3546), style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.ExtraBold)
-                                Text(if (english) "TAP TO COUNT" else "स्पर्श करून मोजा", color = Color(0xFF7F3546), style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
                             }
                         }
                     }
@@ -751,7 +749,6 @@ private fun BabyMovementScreen(
                         }
                     }
                 }
-            }
         } else {
             Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(26.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
                 Column(Modifier.fillMaxWidth().padding(22.dp), horizontalAlignment = Alignment.CenterHorizontally) {
