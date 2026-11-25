@@ -67,6 +67,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
+import com.airbnb.lottie.compose.LottieAnimation
+import com.airbnb.lottie.compose.LottieCompositionSpec
+import com.airbnb.lottie.compose.animateLottieCompositionAsState
+import com.airbnb.lottie.compose.rememberLottieComposition
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
@@ -96,24 +100,14 @@ private fun BilanLaunchSplash() {
             .background(if (dark) Color(0xFF3A3550) else Color(0xFFF4EFF3)),
         contentAlignment = Alignment.Center
     ) {
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
-        ) {
-            Image(
-                painter = painterResource(id = R.drawable.splash_logo),
-                contentDescription = "Tynimovez Pregnancy Tracker logo",
-                modifier = Modifier.size(164.dp),
-                contentScale = ContentScale.Fit
-            )
-            Spacer(modifier = Modifier.height(18.dp))
-            Text(
-                text = "Tynimovez",
-                color = if (dark) Color(0xFFF4EFF3) else Color(0xFF3A3550),
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.SemiBold
-            )
-        }
+        Image(
+            painter = painterResource(
+                id = if (dark) R.drawable.bilan_splash_dark else R.drawable.bilan_splash_light
+            ),
+            contentDescription = "Bilan Pregnancy Tracker logo",
+            modifier = Modifier.fillMaxSize(),
+            contentScale = ContentScale.Crop
+        )
     }
 }
 
@@ -599,10 +593,20 @@ private fun BabyMovementScreen(
     var voiceDetectedCount by remember(activeSession?.id) { mutableStateOf(0) }
     val pending = detections.count { it.status == "PENDING" }
     val added = detections.count { it.status == "CONFIRMED" }
-    Column(
-        Modifier.fillMaxSize().verticalScroll(rememberScrollState()),
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
+    Box(Modifier.fillMaxSize()) {
+        Image(
+            painter = painterResource(
+                id = if (isSystemInDarkTheme()) R.drawable.bg_movement_dark else R.drawable.bg_movement_light
+            ),
+            contentDescription = null,
+            modifier = Modifier.fillMaxSize(),
+            contentScale = ContentScale.Crop,
+            alpha = 0.18f
+        )
+        Column(
+            Modifier.fillMaxSize().verticalScroll(rememberScrollState()),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
         if (activeSession != null) {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.Center) {
@@ -680,18 +684,53 @@ private fun BabyMovementScreen(
                             drawArc(Gold, -90f, 360f * progress, false, style = androidx.compose.ui.graphics.drawscope.Stroke(width = 14.dp.toPx(), cap = StrokeCap.Round))
                         }
                         val tapInteraction = remember { MutableInteractionSource() }
+                        var kickAnimation by remember(activeSession.id) { mutableStateOf(false) }
+                        val kickComposition by rememberLottieComposition(
+                            LottieCompositionSpec.RawRes(
+                                if (isSystemInDarkTheme()) R.raw.bilan_womb_dark_kick else R.raw.bilan_womb_light_kick
+                            )
+                        )
+                        val idleComposition by rememberLottieComposition(
+                            LottieCompositionSpec.RawRes(
+                                if (isSystemInDarkTheme()) R.raw.bilan_womb_dark_idle else R.raw.bilan_womb_light_idle
+                            )
+                        )
+                        val kickProgress by animateLottieCompositionAsState(
+                            kickComposition,
+                            isPlaying = kickAnimation,
+                            restartOnPlay = true
+                        )
+                        LaunchedEffect(kickAnimation) {
+                            if (kickAnimation) {
+                                delay(1500)
+                                kickAnimation = false
+                            }
+                        }
                         Box(
                             Modifier.size(193.dp)
                                 .graphicsLayer(scaleX = tapScale.value, scaleY = tapScale.value)
                                 .background(Brush.linearGradient(if (activeSession.movementCount >= 10) listOf(Color(0xFFE2F5E8), Color(0xFFC6EBD2)) else listOf(Color(0xFFFFE6DD), Color(0xFFFFC9B9))), CircleShape)
                                 .clickable(interactionSource = tapInteraction, indication = null) {
                                     tapScope.launch { tapScale.animateTo(.92f, tween(90)); tapScale.animateTo(1f, tween(180)) }
+                                    kickAnimation = true
                                     onTap(activeSession.id)
                                 },
                             contentAlignment = Alignment.Center
                         ) {
                             Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                Icon(Icons.Default.PregnantWoman, null, tint = Color(0xFFC65F68), modifier = Modifier.size(44.dp))
+                                if (kickAnimation && kickComposition != null) {
+                                    LottieAnimation(
+                                        composition = kickComposition,
+                                        progress = { kickProgress },
+                                        modifier = Modifier.size(78.dp)
+                                    )
+                                } else {
+                                    LottieAnimation(
+                                        composition = idleComposition,
+                                        progress = { 0.35f },
+                                        modifier = Modifier.size(78.dp)
+                                    )
+                                }
                                 Text("+1", color = Color(0xFF7F3546), style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.ExtraBold)
                                 Text(if (english) "TAP TO COUNT" else "स्पर्श करून मोजा", color = Color(0xFF7F3546), style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
                             }
@@ -857,7 +896,8 @@ private fun BabyMovementScreen(
                 }
             }
         }
-        Spacer(Modifier.height(12.dp))
+            Spacer(Modifier.height(12.dp))
+        }
     }
 }
 

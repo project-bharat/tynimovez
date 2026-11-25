@@ -4,6 +4,7 @@ import android.app.DatePickerDialog
 import android.content.Context
 import android.content.Intent
 import androidx.compose.foundation.background
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -32,6 +33,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
@@ -92,8 +96,18 @@ internal fun PregnancyCalculatorScreen(english: Boolean) {
 
     val valid = timeline?.takeIf { it.daysElapsed >= 0 }
     with(language) {
-        Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(bottom = 20.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Box(Modifier.fillMaxSize()) {
+            Image(
+                painter = painterResource(
+                    id = if (isSystemInDarkTheme()) R.drawable.bg_growth_dark else R.drawable.bg_growth_light
+                ),
+                contentDescription = null,
+                modifier = Modifier.fillMaxSize(),
+                contentScale = ContentScale.Crop,
+                alpha = 0.16f
+            )
+            Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(bottom = 20.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)) {
             if (valid != null) {
                 PregnancySummary(valid, language, format) { milestone ->
                     val share = Intent(Intent.ACTION_SEND).setType("text/plain")
@@ -165,6 +179,7 @@ internal fun PregnancyCalculatorScreen(english: Boolean) {
                         "तारीख तपासा. गर्भावस्थेची अंदाजित सुरुवात भविष्यात आहे."),
                         color = MaterialTheme.colorScheme.error)
                 }
+            }
             }
         }
     }
